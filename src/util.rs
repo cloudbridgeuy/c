@@ -1,12 +1,12 @@
-use bat::Syntax;
 use bat::PrettyPrinter;
+use bat::Syntax;
+use chrono::prelude::*;
 use copypasta_ext::prelude::*;
 use copypasta_ext::x11_fork::ClipboardContext;
+use std::fs;
 use std::fs::File;
-use std::io::prelude::*;
 use std::io::Read;
-
-
+use std::io::prelude::*;
 
 const THEME: &str = "ansi";
 
@@ -69,3 +69,25 @@ pub fn read_file(file_path: &str) -> String {
     }
 }
 
+pub fn get_current_date() -> String {
+    let local: DateTime<Local> = Local::now();
+    local.format("%Y-%m-%d").to_string()
+}
+
+pub fn remove_code_lines(text: &str) -> String {
+    let mut result = String::new();
+    for line in text.lines() {
+        if !line.trim_start().starts_with("```") {
+            result.push_str(line);
+            result.push('\n');
+        }
+    }
+    result
+}
+
+pub fn create_dir_if_not_exist(dir_path: &str) -> std::io::Result<()> {
+    if fs::metadata(dir_path).is_err() {
+        fs::create_dir_all(dir_path)?;
+    }
+    Ok(())
+}

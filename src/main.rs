@@ -1,7 +1,8 @@
 pub mod gpt;
 pub mod util;
 
-const PREVIOUS_PROMPT: &str = "/tmp/a_previous_prompt";
+const LAST_REQUEST_FILE: &str = "last_request.json";
+const CONFIG_DIRECTORY_PATH: &str = "/tmp/a";
 
 fn main() {
     let mut args: Vec<_> = std::env::args().collect();
@@ -16,7 +17,7 @@ fn main() {
     let prompt = args.join(" ");
     let api_key = std::env::var("OPENAI_API_KEY").expect("Please set the GPT_API_KEY not set environment variable");
 
-    let client = gpt::GPTClient::new(api_key);
+    let mut client = gpt::GPTClient::new(api_key);
     let mut response = client.prompt(prompt).expect("Could not make request to API");
 
     response.push_str("\n");
@@ -29,7 +30,5 @@ fn main() {
         util::copy_to_clipboard(&response);
     }
 
-    util::write_to_file(PREVIOUS_PROMPT, &response).unwrap();
-
-    util::pretty_print(&response, &mut lang);
+    util::pretty_print(&util::remove_code_lines(&response), &mut lang);
 }

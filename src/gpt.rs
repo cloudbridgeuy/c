@@ -3,21 +3,23 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{from_str, Value};
 use std::io::Read;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
+use crate::util::get_current_date;
+use std::fmt;
 
-const OPEN_API_URL: &str = "https://api.openai.com/v1/chat/completions";
-const MODEL: &str = "gpt-3.5-turbo";
-const TEMPERATURE: f32 = 0.2;
-const TOP_P: f32 = 1.0;
-const N: u32 = 1;
-const MAX_TOKENS: u32 = 3096;
-const PRESENCE_PENALTY: f32 = 0.0;
-const FREQUENCY_PENALTY: f32 = 0.0;
-const FILE_PATH: &str = "/tmp/a_previous_prompt.json";
+#[derive(Debug, Clone)]
+struct PromptTooLongError;
+
+impl fmt::Display for PromptTooLongError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "prompt is too long")
+    }
+}
+
+impl Error for PromptTooLongError {}
 
 type BoxResult<T> = Result<T, Box<dyn Error>>;
 
@@ -27,13 +29,12 @@ struct Prompt {
     temperature: f32,
     top_p: f32,
     n: u32,
-    max_tokens: u32,
     presence_penalty: f32,
     frequency_penalty: f32,
     messages: Vec<ChatMessage>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct ChatMessage {
     role: String,
     content: String,
@@ -41,28 +42,135 @@ struct ChatMessage {
 
 pub struct GPTClient {
     api_key: String,
+    last_request_path: String,
+    prompt: Prompt,
     url: String,
-    prev_prompt_path: String,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ChatResponseMessage {
+    content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ChatResponse {
+    message: ChatResponseMessage
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ChatError {
+    message: String
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Response {
+    error: Option<ChatError>,
+    choices: Option<Vec<ChatResponse>>,
+}
+
+const OPEN_API_URL: &str = "https://api.openai.com/v1/chat/completions";
+const MODEL: &str = "gpt-3.5-turbo";
+const TEMPERATURE: f32 = 0.2;
+const TOP_P: f32 = 1.0;
+const N: u32 = 1;
+const MAX_TOKENS: u32 = 4096;
+const PRESENCE_PENALTY: f32 = 0.0;
+const FREQUENCY_PENALTY: f32 = 0.0;
+
+fn retry_make_request<F>(client: &mut GPTClient, make_request: F) -> BoxResult<String>
+where
+    F: Fn(&mut GPTClient) -> BoxResult<String>,
+{
+    let mut retries = 0;
+    loop {
+        match make_request(client) {
+            Ok(response) => return Ok(response),
+            Err(err) if err.is::<PromptTooLongError>() => {
+                retries += 1;
+
+                if retries > 5 {
+                    panic!("Failed to make request after 5 retries");
+                }
+
+                if client.prompt.messages.len() < 3 {
+                    panic!("Prompt is to big. Reduce the prompt size or delete the {} file", client.last_request_path);
+                }
+                client.prompt.messages.remove(1);
+                client.prompt.messages.remove(1);
+
+                println!("Prompt is too long. Retrying with less history");
+            },
+            Err(e) => panic!("{:#?}", e),
+        }
+    }
+}
+
+fn make_api_request(client: &mut GPTClient) -> BoxResult<String> {
+    let mut auth = String::from("Bearer ");
+    auth.push_str(&client.api_key);
+
+    let mut headers = HeaderMap::new();
+    headers.insert("Authorization", HeaderValue::from_str(auth.as_str())?);
+    headers.insert("Content-Type", HeaderValue::from_str("application/json")?);
+    let body = serde_json::to_string(&client.prompt)?;
+
+    let http = Client::new();
+    let mut response_body = String::new();
+    let mut response = http.post(&client.url).headers(headers).body(body).send()?;
+    response.read_to_string(&mut response_body)?;
+
+    return process_json_object(&response_body);
+}
+
+fn process_json_object(json_str: &str) -> BoxResult<String> {
+    let object: Response = serde_json::from_str(json_str)?;
+
+    if object.error.is_some() {
+        return Err(Box::new(PromptTooLongError {}));
+    }
+
+    match object.choices {
+        Some(choices) => Ok(choices[0].message.content.to_string()),
+        None => panic!("No choices found"),
+    }
+}
+
 
 impl GPTClient {
     pub fn new(api_key: String) -> Self {
         GPTClient {
             api_key,
             url: String::from(OPEN_API_URL),
-            prev_prompt_path: String::from(FILE_PATH),
+            last_request_path: String::from(crate::CONFIG_DIRECTORY_PATH) + "/" + &String::from(crate::LAST_REQUEST_FILE),
+            prompt: Prompt {
+                model: String::from(MODEL),
+                temperature: TEMPERATURE,
+                top_p: TOP_P,
+                n: N,
+                presence_penalty: PRESENCE_PENALTY,
+                frequency_penalty: FREQUENCY_PENALTY,
+                messages: Vec::new()
+            }
         }
     }
 
-    fn serialize_and_store(&self, messages: Vec<ChatMessage>) -> std::io::Result<()> {
-        let serialized = serde_json::to_string(&messages)?;
-        let mut file = File::create(&self.prev_prompt_path)?;
+    fn serialize_and_store(&self) -> std::io::Result<()> {
+        let serialized = serde_json::to_string(&self.prompt.messages)?;
+        let mut file = File::create(&self.last_request_path)?;
         file.write_all(serialized.as_bytes())?;
         Ok(())
     }
 
     fn read_and_deserialize(&self) -> BoxResult<Vec<ChatMessage>> {
-        let mut file = File::open(&self.prev_prompt_path)?;
+        match crate::util::create_dir_if_not_exist(crate::CONFIG_DIRECTORY_PATH) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("failed to create config directory: {}", e);
+                std::process::exit(1);
+            }
+        }
+
+        let mut file = File::open(&self.last_request_path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
 
@@ -72,55 +180,19 @@ impl GPTClient {
     }
 
 
-    pub fn prompt(&self, prompt: String) -> BoxResult<String> {
+    pub fn prompt(&mut self, prompt: String) -> BoxResult<String> {
         let prompt_length = prompt.len() as u32;
         if prompt_length >= MAX_TOKENS {
             return Err(format!("Prompt cannot exeed length of {} characters", MAX_TOKENS - 1).into());
         }
-        let mut p = Prompt {
-            model: String::from(MODEL),
-            temperature: TEMPERATURE,
-            top_p: TOP_P,
-            n: N,
-            max_tokens: MAX_TOKENS,
-            presence_penalty: PRESENCE_PENALTY,
-            frequency_penalty: FREQUENCY_PENALTY,
-            messages: vec![
-                ChatMessage {
-                    role: String::from("system"),
-                    content: String::from(r#"
-You are a senior software engineer with years of experience working with multiple programming languages.
+        self.prompt.messages.push(ChatMessage {
+            role: String::from("system"),
+            content: String::from(format!(
+r#"You are a senior software engineer with years of experience working with multiple programming languages.
 I'm going to ask you a series of questions regarding software engineering and I want you to answer them
-by returning code examples related to the given problem. The first word of each prompt represents the
-language you should use to give your answer.
-
-Every part of your answer that is not part of the code example should be written as a code comment.
-
-All your lines that are not code related should have a lenght of less than 90 characters.
-
-For example, if I give you the following prompt:
-
-"""
-bash script that can start a recording from the cli and then store it as an mp3 file
-"""
-
-You should return something like this:
-
-"""
-# Record an mp3 audio file
-
-echo Enter the recording file path
-read file_path
-rec -c 1 -r 16000 -b 16 -e signed-integer -t raw - |
-    sox -t raw -r 16000 -b 16 -e signed-integer - -t mp3 "$file_path"
-
-# This code assumes that you have `rec` and `sox` available on your system
-# and that you are running this from macOS.
-"""
-"#)
-                },
-            ],
-        };
+by returning only code. The first word of each prompt represents the language you should use. All lines
+that are not code should be represented as code comments. Always use two spaces for tabs.
+Current date: {{ {} }}"#, get_current_date()))});
 
         let prev_prompt: Vec<ChatMessage> = match self.read_and_deserialize() {
             Ok(v) => v,
@@ -128,7 +200,7 @@ rec -c 1 -r 16000 -b 16 -e signed-integer -t raw - |
         };
 
         for vector in prev_prompt {
-            p.messages.push(vector);
+            self.prompt.messages.push(vector);
         }
 
         let message = ChatMessage {
@@ -136,40 +208,26 @@ rec -c 1 -r 16000 -b 16 -e signed-integer -t raw - |
             content: String::from(&prompt)
         };
 
-        p.messages.push(message);
+        self.prompt.messages.push(message);
 
-        let mut auth = String::from("Bearer ");
-        auth.push_str(&self.api_key);
+        let max_tokens = self.prompt.messages.iter()
+                .map(|s| s.content.split_whitespace().count())
+                .sum::<usize>() as f32 * 0.75;
 
-        let mut headers = HeaderMap::new();
-        headers.insert("Authorization", HeaderValue::from_str(auth.as_str())?);
-        headers.insert("Content-Type", HeaderValue::from_str("application/json")?);
+        if max_tokens > MAX_TOKENS as f32 / 2.0 {
+            self.prompt.messages.remove(1);
+            self.prompt.messages.remove(1);
+        }
 
-        let body = serde_json::to_string(&p)?;
+        let content = retry_make_request(self, make_api_request)?;
 
-        let client = Client::new();
-        let mut res = client.post(&self.url)
-            .body(body)
-            .headers(headers)
-            .send()?;
+        self.prompt.messages.drain(..1);
+        self.prompt.messages.push(ChatMessage {
+            role: String::from("assistant"),
+            content: content.to_string()
+        });
+        self.serialize_and_store()?;
 
-        let mut response_body = String::new();
-        res.read_to_string(&mut response_body)?;
-        let json_object: Value = from_str(&response_body)?;
-        let body = json_object["choices"][0]["message"]["content"].as_str();
-
-        let answer = match body {
-            Some(a) => {
-                self.serialize_and_store(vec![ChatMessage {
-                    role: String::from("user"), content: prompt
-                }, ChatMessage {
-                    role: String::from("assistant"), content: a.to_string()
-                }])?;
-                Ok(String::from(a))
-            }
-            None => Err(format!("JSON parse error: {response_body}").into()),
-        };
-
-        return answer;
+        return Ok(String::from(content));
     }
 }
