@@ -97,6 +97,59 @@ answers returned by ChatGPT by overriding the `system` command.
 
 > There's currently no way of changing the `system` command dynamically yet.
 
+## Comments
+
+My goal was to get ChatGPT to return all the context information about the code formatted as code
+comments. Hence the last sentence of the `system` prompt. Unfortunately, it doesn't always work as
+expected. It doesn't take away from the AI responses but it makes the clipboard functionality less
+useful since you need to cleanup the answer after you paste it in your editor.
+
+## Stdin
+
+You can also provide the ChatGPT prompt through `stdin`.
+
+```bash
+echo bash script that shows a spinner in the terminal | a
+```
+
+You can also use `stdin` when you need (or want) to write multi-line prompts or have to escape a
+bunch of characters:
+
+<pre><code>
+{
+tee <<-'EOF'
+rust application that can scrap all the current Hackernews posts and returns a serialized
+JSON object following this struct:
+
+```rust
+struct Post {
+  index: String,
+  url: String,
+}
+```
+
+Please provide all information that is not related to code as code comments.
+EOF
+} | a
+</code></pre>
+
+Another good tool to use to write blocks of code in the terminal is [`gum`](https://github.com/charmbracelet/gum).
+Here's how you would use it:
+
+```bash
+a <<<"$(gum write --placeholder "Details of this change (CTRL+D to finish)" --width=80 --height=20)"
+```
+
+If you feel is to verbose you can wrap it in a function:
+
+```bash
+function aa() {
+  a <<<"$(gum write --placeholder "Details of this change (CTRL+D to finish)" --width=80 --height=20)"
+}
+```
+
+Then you can just type `aa` and get directly to creating your prompt.
+
 ## Clipboard
 
 Besides printing the response to the console and storing the answer on a file, the CLI also allows you

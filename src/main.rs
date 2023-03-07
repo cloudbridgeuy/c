@@ -1,24 +1,19 @@
 use log::{info, debug, error};
+use a;
 
-pub mod gpt;
-pub mod util;
-
-const LAST_REQUEST_FILE: &str = "last_request.json";
-const CONFIG_DIRECTORY_PATH: &str = "/tmp/a";
 
 fn main() {
     env_logger::init();
 
     let mut args: Vec<_> = std::env::args().collect();
-    args.remove(0);
+    let (prompt, mut lang) = match a::gather_args(&mut args) {
+        Ok(args) => args,
+        Err(e) => {
+            error!("error parsing arguments: {}", e);
+            std::process::exit(1);
+        }
+    };
 
-    if args.len() == 0 {
-        error!("no prompt provided");
-        std::process::exit(1);
-    }
-
-    let mut lang = args[0].clone();
-    let prompt = args.join(" ");
     debug!("prompt: {}", prompt);
     let api_key = match std::env::var("OPENAI_API_KEY") {
         Ok(key) => key,
@@ -28,7 +23,7 @@ fn main() {
         }
     };
 
-    let mut client = gpt::GPTClient::new(api_key);
+    let mut client = a::gpt::GPTClient::new(api_key);
     debug!("client: {:#?}", client);
     let mut response = match client.prompt(prompt) {
         Ok(response) => response,
@@ -46,10 +41,10 @@ fn main() {
 
     #[cfg(feature = "clipboard")]
     {
-        util::copy_to_clipboard(&response);
+        a::util::copy_to_clipboard(&response);
         info!("copy to clipboard");
     }
 
     info!("pretty print to stdout");
-    util::pretty_print(&util::remove_code_lines(&response), &mut lang);
+    a::util::pretty_print(&a::util::remove_code_lines(&response), &mut lang);
 }
