@@ -39,6 +39,22 @@ publish() {
   cargo publish
 }
 
+# @cmd Creates a new GitHub release
+github() {
+  # Set the release version
+  version="$(date +"%Y-%m-%dT%H%M")"
+
+  # Tag the current commit
+  git tag -a "$version" -m "Version $version" HEAD
+  git push origin "$version"
+
+  # Create the release
+  gh release create "$version" --title "Release $version" --notes "Release notes for $version"
+
+  # Upload the binary file for macOS
+  gh release upload "$version" ./target/release/a --clobber
+}
+
 # Run `run` as the default command.
 case "$1" in
   --help) ;;
