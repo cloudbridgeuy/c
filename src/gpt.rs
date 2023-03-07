@@ -1,3 +1,4 @@
+use log::{debug, info, warn, error};
 use reqwest::{
     blocking::Client,
     header::{HeaderMap, HeaderValue},
@@ -40,6 +41,7 @@ struct ChatMessage {
     content: String,
 }
 
+#[derive(Debug)]
 pub struct GPTClient {
     api_key: String,
     last_request_path: String,
@@ -89,55 +91,92 @@ where
                 retries += 1;
 
                 if retries > 5 {
-                    panic!("Failed to make request after 5 retries");
+                    error!("Failed to make request after 5 retries");
+                    std::process::exit(1);
                 }
 
                 if client.prompt.messages.len() < 3 {
-                    panic!("Prompt is to big. Reduce the prompt size or delete the {} file", client.last_request_path);
+                    error!("Prompt is to big. Reduce the prompt size or delete the {} file", client.last_request_path);
+                    std::process::exit(1);
                 }
+                info!("Removing oldest chat interaction");
                 client.prompt.messages.remove(1);
                 client.prompt.messages.remove(1);
-
-                println!("Prompt is too long. Retrying with less history");
+                debug!("Retrying request [{}]", retries);
             },
-            Err(e) => panic!("{:#?}", e),
+            Err(e) => {
+                error!("Uncaught error: {:#?}", e);
+                std::process::exit(2);
+            }
         }
     }
 }
 
 fn make_api_request(client: &mut GPTClient) -> BoxResult<String> {
+    info!("Creating auth string from OPEN_AI_KEY");
     let mut auth = String::from("Bearer ");
     auth.push_str(&client.api_key);
 
+    info!("Creating request headers");
     let mut headers = HeaderMap::new();
     headers.insert("Authorization", HeaderValue::from_str(auth.as_str())?);
     headers.insert("Content-Type", HeaderValue::from_str("application/json")?);
-    let body = serde_json::to_string(&client.prompt)?;
 
+    info!("Calculating estimated_tokens");
+    let estimated_tokens = client.prompt.messages.iter()
+        .map(|s| s.content.split_whitespace().count())
+        .sum::<usize>() as f32;
+    info!("estimated_tokens = {}", estimated_tokens);
+
+    if estimated_tokens > MAX_TOKENS as f32 / 2.0 {
+        info!("Estimated tokens is bigger than {}. Reducing the prompt context and retrying", MAX_TOKENS as f32 / 2.0);
+        client.prompt.messages.remove(1);
+        client.prompt.messages.remove(1);
+        return make_api_request(client);
+    }
+
+    info!("Estimated tokens are less than {}.", MAX_TOKENS as f32 / 2.0);
+
+    info!("Serializing request body");
+    let body = serde_json::to_string(&client.prompt)?;
+    debug!("body: {:#?}", body);
+
+    info!("Making request");
     let http = Client::new();
     let mut response_body = String::new();
     let mut response = http.post(&client.url).headers(headers).body(body).send()?;
+    info!("Reading response body");
     response.read_to_string(&mut response_body)?;
+    debug!("response_body: {:#?}", response_body);
 
     return process_json_object(&response_body);
 }
 
 fn process_json_object(json_str: &str) -> BoxResult<String> {
+    info!("Deserializing response body");
     let object: Response = serde_json::from_str(json_str)?;
 
+    info!("Checking if an error was returned");
     if object.error.is_some() {
+        warn!("TODO: Check the error message to see if the issue is related to the prompt size");
+        error!("Response error: {:#?}", object.error);
         return Err(Box::new(PromptTooLongError {}));
     }
 
+    info!("Getting response content");
     match object.choices {
         Some(choices) => Ok(choices[0].message.content.to_string()),
-        None => panic!("No choices found"),
+        None => {
+            error!("No content could be found: {:#?}", object);
+            std::process::exit(2);
+        }
     }
 }
 
 
 impl GPTClient {
     pub fn new(api_key: String) -> Self {
+        info!("Creating GPTClient");
         GPTClient {
             api_key,
             url: String::from(OPEN_API_URL),
@@ -155,36 +194,42 @@ impl GPTClient {
     }
 
     fn serialize_and_store(&self) -> std::io::Result<()> {
+        info!("Serializing prompt messages");
         let serialized = serde_json::to_string(&self.prompt.messages)?;
+        info!("Opening/creating storage file {}", &self.last_request_path);
         let mut file = File::create(&self.last_request_path)?;
+        info!("Writing prompt messages to {}", &self.last_request_path);
         file.write_all(serialized.as_bytes())?;
         Ok(())
     }
 
     fn read_and_deserialize(&self) -> BoxResult<Vec<ChatMessage>> {
+        info!("Opening/creating storage config directory {}", crate::CONFIG_DIRECTORY_PATH);
         match crate::util::create_dir_if_not_exist(crate::CONFIG_DIRECTORY_PATH) {
             Ok(_) => (),
             Err(e) => {
-                println!("failed to create config directory: {}", e);
+                error!("failed to create config directory: {}", e);
                 std::process::exit(1);
             }
         }
 
+        info!("Opening storage last request file {}", &self.last_request_path);
         let mut file = File::open(&self.last_request_path)?;
+        info!("Reading storage last request file {}", &self.last_request_path);
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
+        debug!("contents: {}", contents);
 
+        info!("Serializing content");
         let chat_messages: Vec<ChatMessage> = serde_json::from_str(&contents)?;
+        debug!("chat_messages: {:#?}", chat_messages);
 
         Ok(chat_messages)
     }
 
 
     pub fn prompt(&mut self, prompt: String) -> BoxResult<String> {
-        let prompt_length = prompt.len() as u32;
-        if prompt_length >= MAX_TOKENS {
-            return Err(format!("Prompt cannot exeed length of {} characters", MAX_TOKENS - 1).into());
-        }
+        info!("Creating system message prompt");
         self.prompt.messages.push(ChatMessage {
             role: String::from("system"),
             content: String::from(format!(
@@ -193,16 +238,20 @@ I'm going to ask you a series of questions regarding software engineering and I 
 by returning only code. The first word of each prompt represents the language you should use. All lines
 that are not code should be represented as code comments. Always use two spaces for tabs.
 Current date: {{ {} }}"#, get_current_date()))});
+        debug!("system message: {:#?}", self.prompt.messages[0]);
 
-        let prev_prompt: Vec<ChatMessage> = match self.read_and_deserialize() {
+        info!("Loading last request file");
+        let last_request: Vec<ChatMessage> = match self.read_and_deserialize() {
             Ok(v) => v,
             Err(_) => Vec::new()
         };
 
-        for vector in prev_prompt {
+        info!("Adding last requests to the message prompts");
+        for vector in last_request {
             self.prompt.messages.push(vector);
         }
 
+        info!("Adding current prompt");
         let message = ChatMessage {
             role: String::from("user"),
             content: String::from(&prompt)
@@ -210,17 +259,12 @@ Current date: {{ {} }}"#, get_current_date()))});
 
         self.prompt.messages.push(message);
 
-        let max_tokens = self.prompt.messages.iter()
-                .map(|s| s.content.split_whitespace().count())
-                .sum::<usize>() as f32 * 0.75;
-
-        if max_tokens > MAX_TOKENS as f32 / 2.0 {
-            self.prompt.messages.remove(1);
-            self.prompt.messages.remove(1);
-        }
-
+        info!("Running request in retry mode");
         let content = retry_make_request(self, make_api_request)?;
 
+        debug!("content = {}", content);
+
+        info!("Storing resoonse in last request file");
         self.prompt.messages.drain(..1);
         self.prompt.messages.push(ChatMessage {
             role: String::from("assistant"),
