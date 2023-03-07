@@ -1,6 +1,7 @@
 pub mod gpt;
 pub mod util;
-pub mod audio;
+
+const PREVIOUS_PROMPT: &str = "/tmp/a_previous_prompt";
 
 fn main() {
     let mut args: Vec<_> = std::env::args().collect();
@@ -27,6 +28,8 @@ fn main() {
     {
         util::copy_to_clipboard(&response);
     }
+
+    util::write_to_file(PREVIOUS_PROMPT, &response).unwrap();
 
     util::pretty_print(&response, &mut lang);
 }
