@@ -23,7 +23,6 @@ pub fn whisper(api_key: String) -> std::io::Result<String> {
             .output()
             .expect("Failed to create temp file").stdout
         ).expect("Failed to parse mktemp").trim().to_string() + ".wav";
-    println!("{}", tmp);
     let mut rec = Command::new("rec")
         .arg("-c")
         .arg("1")
@@ -89,6 +88,8 @@ pub fn whisper(api_key: String) -> std::io::Result<String> {
         .expect("Failed to execute rm command");
 
     let body: TranscriptionResponse = serde_json::from_str(&response)?;
+
+    println!("\n----------------------------------------------\n\n");
 
     Ok(body.text)
 }
