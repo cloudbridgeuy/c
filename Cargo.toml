@@ -1,0 +1,33 @@
+[package]
+name = "gpt"
+description = "A CLI tool to generate and pretty-print code snippets from GPT3"
+repository = "https://github.com/guzmonne/gpt"
+license = "MIT"
+version = "0.1.0"
+edition = "2021"
+create-type = "bin"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bat = "0.22.1"
+copypasta-ext = "0.4.4"
+reqwest = { version = "0.11.14", features = ["blocking"] }
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.93"
+env_logger = "0.10.0"
+log = "0.4.17"
+chrono = "0.4.23"
+
+[[bin]]
+name = "a"
+path = "src/main.rs"
+
+[lib]
+name = "a"
+path = "src/lib.rs"
+
+[features]
+clipboard = []
+
+default = ["clipboard"]
