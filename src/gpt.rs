@@ -1,4 +1,5 @@
 use log::{debug, info, warn, error};
+use std::time::Duration;
 use reqwest::{
     blocking::Client,
     header::{HeaderMap, HeaderValue},
@@ -72,8 +73,8 @@ struct Response {
 
 const OPEN_API_URL: &str = "https://api.openai.com/v1/chat/completions";
 const MODEL: &str = "gpt-3.5-turbo";
-const TEMPERATURE: f32 = 0.2;
-const TOP_P: f32 = 1.0;
+const TEMPERATURE: f32 = 0.0;
+const TOP_P: f32 = 0.8;
 const N: u32 = 1;
 const PRESENCE_PENALTY: f32 = 0.0;
 const FREQUENCY_PENALTY: f32 = 0.0;
@@ -114,8 +115,8 @@ where
 fn make_api_request(client: &mut GPTClient) -> BoxResult<String> {
     info!("Calculating estimated_tokens");
     let estimated_tokens = client.prompt.messages.iter()
-        .map(|s| s.content.split_whitespace().count())
-        .sum::<usize>() as f32;
+        .map(|s| s.content.chars().count())
+        .sum::<usize>() as f32 / 4.0;
     info!("estimated_tokens = {}", estimated_tokens);
 
     if estimated_tokens > crate::MAX_TOKENS as f32 / 2.0 {
@@ -140,7 +141,7 @@ fn make_api_request(client: &mut GPTClient) -> BoxResult<String> {
     debug!("body: {:#?}", body);
 
     info!("Making request");
-    let http = Client::new();
+    let http = Client::builder().timeout(Duration::from_secs(90)).build()?;
     let mut response_body = String::new();
     let mut response = http.post(&client.url).headers(headers).body(body).send()?;
     info!("Reading response body");
@@ -228,12 +229,7 @@ impl GPTClient {
         info!("Creating system message prompt");
         self.prompt.messages.push(ChatMessage {
             role: String::from("system"),
-            content: String::from(format!(
-r#"You are a senior software engineer with years of experience working with multiple programming languages.
-I'm going to ask you a series of questions regarding software engineering and I want you to answer them
-by returning only code. The first word of each prompt represents the language you should use. All lines
-that are not code should be represented as code comments. Always use two spaces for tabs.
-Current date: {{ {} }}"#, get_current_date()))});
+            content: String::from(format!("You are an intelligent language model designed to create programming code in any language. All prompts will include the language to use as the first word. OUTPUT MUST BE CODE. NEVER ADD ANY TEXT THAT IS NOT CODE. DO NOT INCLUDE THE PROGRAMMING LANGUAGE. DO NOT EXPLAIN THE CODE OR ADD ADDITIONAL CONTEXT. DON'T MENTION THE PROGRAMMING LANGUAGE AND ALWAYS USE TWO SPACES INSTEAD OF TABS. Current date: {{ {} }}", get_current_date()))});
         debug!("system message: {:#?}", self.prompt.messages[0]);
 
         info!("Loading last request file");
