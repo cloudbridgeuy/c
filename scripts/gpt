@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+describe="Project tasks CLI"
+author="Guzmán Monné"
+version="0.1.0"
+script="$(basename "$0")"
+
+# Get the root directory of the project
+ROOT=$(git rev-parse --show-toplevel)
+
+# Define the scripts directory
+SCRIPTS_DIR="$ROOT/scripts"
+
+# Get the first argument
+COMMAND=$1
+
+function usage() {
+  tee <<-EOF
+$script $version
+$author
+$describe
+
+USAGE: $script <COMMAND>
+
+COMMANDS:
+  v2  Runs commands for the new version of the app
+  a   Runs commands for the current version of the app
+
+
+EOF
+}
+
+# Shift the arguments to remove the first argument
+shift
+
+# Execute the appropriate script based on the command
+case "$COMMAND" in
+  -h | --help)
+    usage
+    exit
+    ;;
+  v2) "$SCRIPTS_DIR/v2" "$@" ;;
+  a)  "$SCRIPTS_DIR/a" "$@"  ;;
+  *)
+    echo "Invalid command: $COMMAND"
+    exit 1
+    ;;
+esac
+
+# Exit with the same status code as the executed script
+exit $?

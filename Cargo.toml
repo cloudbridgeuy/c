@@ -18,10 +18,15 @@ serde_json = "1.0.93"
 env_logger = "0.10.0"
 log = "0.4.17"
 chrono = "0.4.23"
+clap = { version = "4.1.8", features = ["derive"] }
 
 [[bin]]
 name = "a"
 path = "src/main.rs"
+
+[[bin]]
+name = "v2"
+path = "v2/main.rs"
 
 [lib]
 name = "a"

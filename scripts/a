@@ -4,11 +4,15 @@
 # @author Guzmán Monné
 # @version 1.0.0
 
+ROOT="$(git rev-parse show-toplevel)"
+
+utils="$ROOT/scripts/utils"
 self="$0"
+bin="a"
 
 # @cmd Runs the project in development mode
 run() {
-  cargo run "${argc__args[@]}"
+  $utils run --bin "$bin" -- "${argc__args[@]}"
 }
 
 # @cmd Build the project
