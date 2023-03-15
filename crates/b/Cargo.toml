@@ -1,0 +1,21 @@
+[package]
+name = "b"
+version = "0.0.0"
+homepage = "https://github.com/cloudbridgeuy/a"
+description = "A CLI tool to interact with ChatGPT as a Software Engineer"
+autobins = false
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "b"
+path = "src/main.rs"
+
+[lib]
+name = "b"
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "4.1.8", features = ["derive"] }
