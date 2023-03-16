@@ -6,5 +6,7 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.1.8", features = ["derive"] } # a simple to use, efficient, and full-featured Command Line Argument Parser
-duct = "0.13.6"                                     # a library for running child processes
+clap = { version = "4.1.8", features = ["derive"] } # A simple to use, efficient, and full-featured Command Line Argument Parser
+duct = "0.13.6"                                     # A library for running child processes
+chrono = "0.4.24"                                   # Date and time library for Rust
+bunt = "0.2.8"                                      # Simple macros to write colored and formatted text to a terminal. Based on `termcolor`, thus als…

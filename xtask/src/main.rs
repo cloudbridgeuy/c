@@ -7,8 +7,8 @@
 //! alias in `.cargo/config`.
 
 mod cli;
-mod run;
-mod build;
+mod scripts;
+mod utils;
 
 use clap::Parser;
 
@@ -16,16 +16,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = cli::App::parse();
 
     match &cli.command {
-        Some(cli::Commands::Run { name }) => {
-            run::script(name)?;
-            return Ok(());
-        }
-        Some(cli::Commands::Build { name }) => {
-            build::script(name);
-            return Ok(());
+        Some(command) => {
+            match command {
+                cli::Commands::Run(args) => {
+                    scripts::run(args)
+                }
+                cli::Commands::Build(args) => {
+                    scripts::build(args)
+                }
+                cli::Commands::Github(args) => {
+                    scripts::github(args)
+                }
+                cli::Commands::Install(args) => {
+                    scripts::install(args)
+                }
+            }
         }
         None => {
-            panic!("No command specified");
+            println!("No command specified.");
+            std::process::exit(1);
         }
     }
 }

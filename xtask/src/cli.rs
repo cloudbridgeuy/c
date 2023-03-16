@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Debug, Parser)]
 #[command(name="xtasks")]
@@ -11,16 +11,47 @@ pub struct App {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Runs one of the project binaries
-    Run {
-        /// Name of the binary to run.
-        #[arg(short, long)]
-        name: String,
-    },
+    Run(RunArgs),
     /// Builds one of the project binaries
-    Build {
-        /// Name of the binary to run.
-        #[arg(short, long)]
-        name: String,
-    }
+    Build(BuildArgs),
+    /// Builds a binary and installs it at the given path
+    Install(InstallArgs),
+    /// Creates a new GitHub release
+    Github(GithubArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct RunArgs {
+    /// Name of the binary to run.
+    #[arg(short, long)]
+    pub name: String,
+}
+
+#[derive(Args, Debug)]
+pub struct BuildArgs {
+    /// Name of the binary to run.
+    #[arg(short, long)]
+    pub name: String,
+
+    #[arg(short, long)]
+    pub release: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct InstallArgs {
+    /// Name of the binary to run.
+    #[arg(short, long)]
+    pub name: String,
+
+    /// Path to install the binary to.
+    #[arg(short, long)]
+    pub path: String,
+}
+
+#[derive(Args, Debug)]
+pub struct GithubArgs {
+    /// Name of the binary to run.
+    #[arg(short, long)]
+    pub name: String,
 }
 
