@@ -44,7 +44,6 @@ struct ChatMessage {
     content: String,
 }
 
-#[derive(Debug)]
 pub struct GPTClient {
     api_key: String,
     last_request_path: String,

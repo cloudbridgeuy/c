@@ -26,7 +26,6 @@ fn main() {
     };
 
     let mut client = a::gpt::GPTClient::new(api_key.to_string());
-    debug!("client: {:#?}", client);
 
     let (prompt, mut lang) = if tuple.1 == crate::WHISPER_TRIGGER {
         let text = match a::record::whisper(api_key) {
@@ -40,7 +39,6 @@ fn main() {
     } else {
         tuple.clone()
     };
-    debug!("client: {:#?}", client);
 
 
     let mut response = match client.prompt(prompt) {
