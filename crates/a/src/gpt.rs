@@ -232,7 +232,7 @@ impl GPTClient {
         info!("Creating system message prompt");
         self.prompt.messages.push(ChatMessage {
             role: String::from("system"),
-            content: String::from(format!("Please answer the following questions with CODE ONLY. Include ALL additional information as CODE COMMENTS. The programming language will always be the first word of the prompt. Current date {}", get_current_date()))});
+            content: String::from(format!("Please answer the following questions with CODE ONLY. Include ALL ADDITIONAL INFORMATION AS CODE COMMENTS. You should't answer with anything other than code, or code comments. Always start your answer with the code, and leave comments for the end. The programming language will always be the first word of the prompt. Current date {}", get_current_date()))});
         debug!("system message: {:#?}", self.prompt.messages[0]);
 
         info!("Loading last request file");
