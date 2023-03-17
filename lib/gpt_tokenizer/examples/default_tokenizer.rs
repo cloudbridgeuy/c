@@ -4,10 +4,10 @@
 //! your prompt will consume.
 //!
 //! > As a rule of thumb, OpenAI suggest that 100 tokens equal 75 words.
-use gpt_tokenizer::DefaultTokenizer;
+use gpt_tokenizer::Default;
 
 fn main() {
-    let tokenizer = DefaultTokenizer::new();
+    let tokenizer = Default::new();
 
     let text = r#"I'Many words map to one token, but some don't: indivisible.
 
