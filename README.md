@@ -36,6 +36,21 @@ yq -P /tmp/a/last_request.json
 
 ## Getting started
 
+If you have `macOS` you can download the latest release from the [`Releases`](https://github.com/cloudbridgeuy/a/releases) page.
+
+> All compiled binaries are only for `macOS`. More coming soon!
+
+If don't you'll have to compile the project for your platform. I haven't tested it on any other
+platform other than `macOS` but the following steps should work:
+
+1. Clone the repository.
+2. Run `cargo xtask install --name a --path $CARGO_HOME/bin`.
+
+You can substitute `$CARGO_HOME` for any other directory. The `cargo xtask install` command will
+build the `a` binary, give it write permissions, and move it into the folder you provide.
+
+> You can run `cargo xtask build --name a --release` if you want to move the binary yourself later.
+
 ### OpenAI Key
 
 To run the CLI you must provide your `OPEN_AI_KEY` as an environment variable. You can get your API
