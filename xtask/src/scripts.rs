@@ -44,6 +44,18 @@ pub fn install(args: &cli::InstallArgs) -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
+pub fn publish(args: &cli::PublishArgs) -> Result<(), Box<dyn Error>>{
+    let mut arguments = vec!["publish", "--package", &args.name];
+
+    if args.dry_run {
+        arguments.push("--dry-run");
+    }
+
+    cmd("cargo", arguments).read()?;
+
+    Ok(())
+}
+
 pub fn github(args: &cli::GithubArgs) -> Result<(), Box<dyn Error>>{
     release(&args.name)?;
 

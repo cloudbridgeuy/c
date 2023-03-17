@@ -24,6 +24,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 cli::Commands::Build(args) => {
                     scripts::build(args)
                 }
+                cli::Commands::Publish(args) => {
+                    scripts::publish(args)
+                }
                 cli::Commands::Github(args) => {
                     scripts::github(args)
                 }

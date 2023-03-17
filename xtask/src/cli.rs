@@ -16,6 +16,8 @@ pub enum Commands {
     Build(BuildArgs),
     /// Builds a binary and installs it at the given path
     Install(InstallArgs),
+    /// Publishes a package to crates.io
+    Publish(PublishArgs),
     /// Creates a new GitHub release
     Github(GithubArgs),
 }
@@ -33,8 +35,20 @@ pub struct BuildArgs {
     #[arg(short, long)]
     pub name: String,
 
+    /// Release flag
     #[arg(short, long)]
     pub release: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct PublishArgs {
+    /// Name of the library to publish.
+    #[arg(short, long)]
+    pub name: String,
+
+    /// Dry run flag.
+    #[arg(short, long)]
+    pub dry_run: bool,
 }
 
 #[derive(Args, Debug)]
