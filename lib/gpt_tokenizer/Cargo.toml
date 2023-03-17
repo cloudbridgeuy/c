@@ -7,7 +7,6 @@ readme = "README.md"
 repository = "https://github.com/cloudbridgeuy/a/tree/main/lib/tokenizer"
 edition = "2021"
 keywords = ["bpe", "tokenizer", "openai", "gpt3", "chatgpt"]
-categories = ["tokenizer"]
 
 [dependencies]
 serde_json = "1.0.93"
