@@ -1,0 +1,12 @@
+[package]
+name = "gpt_tokenizer"
+version = "0.1.0"
+description = "Rust BPE Encoder Decoder (Tokenizer) for GPT-2 / GPT-3"
+license = "MIT"
+repository = "https://github.com/cloudbridgeuy/a/tree/main/lib/tokenizer"
+edition = "2021"
+
+[dependencies]
+serde_json = "1.0.93"
+regex = "1.7.1"
+

@@ -11,14 +11,14 @@ pub const VOCAB_BPE: &str = include_str!("vocab.bpe");
 
 /// Default tokenizer that uses embedded encoder and vocab values to create the `encode` and
 /// `decode` functions.
-pub struct DefaultTokenizer {
+pub struct Default {
     encoder: HashMap<String, u32>,
     decoder: HashMap<u32, String>,
     bpe_ranks: HashMap<Vec<String>, usize>,
     byte_decoder: HashMap<char, u32>,
 }
 
-impl DefaultTokenizer {
+impl Default {
     /// Creates a new DefaultTokenizer.
     pub fn new() -> Self {
         let byte_encoder = bytes_to_unicode();

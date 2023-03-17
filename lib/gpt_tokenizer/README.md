@@ -1,9 +1,10 @@
-//! The library comes with a DefaultTokenizer, which is a struct that loads the internal
-//! `encoder.json` and `vocab.bpe`. It simplifies the creation of the `encode` and `decode`
-//! functions. This is specially useful when you just want to estimate the number of tokens
-//! your prompt will consume.
-//!
-//! > As a rule of thumb, OpenAI suggest that 100 tokens equal 75 words.
+# GPT-Tokenizer
+
+An implementation of the GPT-3 tokenizer created by converting the [`GPT-3-Encoder`](https://www.npmjs.com/package/gpt-3-encoder)
+JavaScript package to Rust (with the help of ChatGPT-4). You can use it to estimate the number of
+tokens that your prompt would approximately consume. You can also create your own custom `encoding` and
+`decoding` functions by providing your own `encoder.json` and `vocab.bpe` files.
+
 use tokenizer::DefaultTokenizer;
 
 fn main() {
@@ -28,3 +29,4 @@ Sequences of characters commonly found next to each other may be grouped togethe
     println!("Tokens: {}", encoded.len());
 }
 
+See the [./examples](./examples) directory to see more examples of how to use it.

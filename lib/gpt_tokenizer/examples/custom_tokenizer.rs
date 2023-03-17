@@ -10,7 +10,7 @@
 use std::iter::FromIterator;
 use std::collections::HashMap;
 
-use tokenizer::{ENCODER_JSON, VOCAB_BPE, bpe_ranks, bytes_to_unicode, decode, encode};
+use gpt_tokenizer::{ENCODER_JSON, VOCAB_BPE, bpe_ranks, bytes_to_unicode, decode, encode};
 
 fn main() {
     let encoder: HashMap<String, u32> = serde_json::from_str(ENCODER_JSON).unwrap();
