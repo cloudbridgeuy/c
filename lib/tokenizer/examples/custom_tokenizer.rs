@@ -22,7 +22,11 @@ fn main() {
     let byte_encoder = bytes_to_unicode();
     let byte_decoder: HashMap<char, u32> = HashMap::from_iter(byte_encoder.clone().into_iter().map(|(k, v)| (v, k)));
 
-    let text = "I'm a string with some contractions like I'm, you're, and we'll, as well as some numbers like 123 and some punctuation like !?";
+    let text = r#"I'Many words map to one token, but some don't: indivisible.
+
+Unicode characters like emojis may be split into many tokens containing the underlying bytes: 🤚🏾
+
+Sequences of characters commonly found next to each other may be grouped together: 1234567890"#;
     let encoded = encode(&text, &bpe_ranks, &encoder);
     let decoded = decode(&encoded, &decoder, &byte_decoder);
 

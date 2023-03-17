@@ -9,7 +9,12 @@ use tokenizer::DefaultTokenizer;
 fn main() {
     let tokenizer = DefaultTokenizer::new();
 
-    let text = "I'm a string with some contractions like I'm, you're, and we'll, as well as some numbers like 123 and some punctuation like !?";
+    let text = r#"I'Many words map to one token, but some don't: indivisible.
+
+Unicode characters like emojis may be split into many tokens containing the underlying bytes: 🤚🏾
+
+Sequences of characters commonly found next to each other may be grouped together: 1234567890"#;
+
     let encoded = &tokenizer.encode(text);
     let decoded = &tokenizer.decode(encoded);
 
