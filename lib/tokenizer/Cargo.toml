@@ -1,0 +1,12 @@
+[package]
+name = "tokenizer"
+version = "0.1.0"
+description = "Rust BPE Encoder Decoder for GPT-2 / GPT-3"
+license = "MIT"
+repository = "https://github.com/cloudbridgeuy/a/tree/main/lib/tokenizer"
+edition = "2021"
+
+[dependencies]
+serde_json = "1.0.93"
+regex = "1.7.1"                    # An implementation of regular expressions for Rust. This implementation uses finite automata …
+

@@ -14,3 +14,8 @@ debug = 0
 incremental = true
 # Set this to 1 or 2 to get more useful backtraces in debugger.
 debug = 0
+
+[workspace.dependencies]
+# local crates
+a = { path = "./crates/a", version = "0.0.0" }
+b = { path = "./crates/b", version = "0.0.0" }
