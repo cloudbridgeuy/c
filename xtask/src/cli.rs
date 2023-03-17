@@ -27,6 +27,9 @@ pub struct RunArgs {
     /// Name of the binary to run.
     #[arg(short, long)]
     pub name: String,
+
+    /// Arguments to pass to the binary.
+    pub args: Option<Vec<String>>,
 }
 
 #[derive(Args, Debug)]

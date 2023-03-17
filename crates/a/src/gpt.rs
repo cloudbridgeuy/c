@@ -12,6 +12,8 @@ use std::io::prelude::*;
 use crate::util::get_current_date;
 use std::fmt;
 
+use gpt_tokenizer::Default;
+
 #[derive(Debug, Clone)]
 struct PromptTooLongError;
 
@@ -48,6 +50,7 @@ pub struct GPTClient {
     last_request_path: String,
     prompt: Prompt,
     url: String,
+    tokenizer: Default,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -114,18 +117,18 @@ where
 
 fn make_api_request(client: &mut GPTClient) -> BoxResult<String> {
     info!("Calculating estimated_tokens");
-    let estimated_tokens = client.prompt.messages.iter()
-        .map(|s| s.content.chars().count())
-        .sum::<usize>() as f32 / 4.0;
+    let text = client.prompt.messages.iter().map(|item| item.content.to_owned()).collect::<Vec<_>>().join("\n");
+    let estimated_tokens = client.tokenizer.encode(&text).len();
+
     info!("estimated_tokens = {}", estimated_tokens);
 
-    if estimated_tokens > crate::MAX_TOKENS as f32 / 2.0 {
+    if estimated_tokens as u32 > crate::MAX_TOKENS {
         info!("Estimated tokens is bigger than {}. Reducing the prompt context and retrying", crate::MAX_TOKENS as f32 / 2.0);
         client.prompt.messages.remove(1);
         client.prompt.messages.remove(1);
         return make_api_request(client);
     }
-    info!("Estimated tokens are less than {}.", crate::MAX_TOKENS as f32 / 2.0);
+    info!("Estimated tokens are less than {}.", crate::MAX_TOKENS);
 
     info!("Creating auth string from OPEN_AI_KEY");
     let mut auth = String::from("Bearer ");
@@ -179,6 +182,7 @@ impl GPTClient {
             api_key,
             url: String::from(OPEN_API_URL),
             last_request_path: String::from(crate::CONFIG_DIRECTORY_PATH) + "/" + &String::from(crate::LAST_REQUEST_FILE),
+            tokenizer: Default::new(),
             prompt: Prompt {
                 model: String::from(MODEL),
                 temperature: TEMPERATURE,

@@ -6,7 +6,9 @@ pub mod gpt;
 pub mod util;
 pub mod record;
 
-const MAX_TOKENS: u32 = 4096;
+/// Max tokens that will be used for the prompt. Thise leaves
+/// 1096 tokens for ChatGPT response.
+const MAX_TOKENS: u32 = 3000;
 const LAST_REQUEST_FILE: &str = "last_request.json";
 const CONFIG_DIRECTORY_PATH: &str = "/tmp/a";
 

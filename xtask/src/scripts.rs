@@ -5,7 +5,14 @@ use crate::cli;
 use crate::utils;
 
 pub fn run(args: &cli::RunArgs) -> Result<(), Box<dyn Error>>{
-    cmd!("cargo", "run", "--bin", &args.name).run()?;
+    let mut arguments = vec!["run", "--bin", &args.name];
+
+    match &args.args {
+        Some(args) => arguments.extend(args.iter().map(|s| s.as_str())),
+        None => {}
+    }
+
+    cmd("cargo", arguments).read()?;
 
     Ok(())
 }

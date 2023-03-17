@@ -789,6 +789,7 @@ dependencies = [
  "chrono",
  "copypasta-ext",
  "env_logger",
+ "gpt_tokenizer",
  "log",
  "reqwest",
  "serde",
