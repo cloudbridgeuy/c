@@ -74,7 +74,7 @@ struct Response {
 }
 
 const OPEN_API_URL: &str = "https://api.openai.com/v1/chat/completions";
-const MODEL: &str = "gpt-3.5-turbo";
+const MODEL: &str = "gpt-4";
 const TEMPERATURE: f32 = 0.0;
 const TOP_P: f32 = 0.8;
 const N: u32 = 1;
@@ -232,7 +232,7 @@ impl GPTClient {
         info!("Creating system message prompt");
         self.prompt.messages.push(ChatMessage {
             role: String::from("system"),
-            content: String::from(format!("You are an intelligent language model designed to create programming code in any language. All prompts will include the language to use as the first word. OUTPUT MUST BE CODE. NEVER ADD ANY TEXT THAT IS NOT CODE. DO NOT INCLUDE THE PROGRAMMING LANGUAGE. DO NOT EXPLAIN THE CODE OR ADD ADDITIONAL CONTEXT. DON'T MENTION THE PROGRAMMING LANGUAGE AND ALWAYS USE TWO SPACES INSTEAD OF TABS. Current date: {{ {} }}", get_current_date()))});
+            content: String::from(format!("Please answer the following questions with CODE ONLY. Include ALL additional information as CODE COMMENTS. The programming language will always be the first word of the prompt. Current date {}", get_current_date()))});
         debug!("system message: {:#?}", self.prompt.messages[0]);
 
         info!("Loading last request file");
