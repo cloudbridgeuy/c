@@ -43,7 +43,8 @@ If you have `macOS` you can download the latest release from the [`Releases`](ht
 If don't you'll have to compile the project for your platform. I haven't tested it on any other
 platform other than `macOS` but the following steps should work:
 
-1. Clone the repository.
+1. Clone the repository. If you have access to the `GPT-4` api you can use the `main` branch. If not
+   clone the repository from any of the tagged commits.
 2. Run `cargo xtask install --name a --path $CARGO_HOME/bin`.
 
 You can substitute `$CARGO_HOME` for any other directory. The `cargo xtask install` command will
