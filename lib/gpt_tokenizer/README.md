@@ -5,6 +5,13 @@ JavaScript package to Rust (with the help of ChatGPT-4). You can use it to estim
 tokens that your prompt would approximately consume. You can also create your own custom `encoding` and
 `decoding` functions by providing your own `encoder.json` and `vocab.bpe` files.
 
+> As a rule of thumb, OpenAI suggest that 100 tokens equal 75 words.
+
+See how it works against the tokenizer published by OpenAI:
+
+[https://platform.openai.com/tokenizer](https://platform.openai.com/tokenizer)
+
+```rust
 use tokenizer::DefaultTokenizer;
 
 fn main() {
@@ -21,12 +28,13 @@ Sequences of characters commonly found next to each other may be grouped togethe
 
     println!("Original text: {}", text);
     println!("Encoded text: {:#?}", encoded);
-    println!("Decoded text: {}", decoded);
+    println!("Decoded text: {}", decoded
 
     println!("Text size: {}", text.len());
     println!("Words: {}", text.split(" ").count());
     println!("Rule of Thumb: {}", text.split(" ").count() * 4 / 3);
     println!("Tokens: {}", encoded.len());
 }
+```
 
 See the [./examples](./examples) directory to see more examples of how to use it.
