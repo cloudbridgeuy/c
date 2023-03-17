@@ -6,7 +6,7 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/cloudbridgeuy/a/tree/main/lib/tokenizer"
 edition = "2021"
-keywords = ["bpe", "encoder", "decoder", "tokenizer", "openai", "gpt2", "gpt3", "gpt", "chatgpt"]
+keywords = ["bpe", "tokenizer", "openai", "gpt3", "chatgpt"]
 categories = ["tokenizer"]
 
 [dependencies]
