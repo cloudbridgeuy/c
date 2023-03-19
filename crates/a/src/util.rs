@@ -5,8 +5,8 @@ use copypasta_ext::prelude::*;
 use copypasta_ext::x11_fork::ClipboardContext;
 use std::fs;
 use std::fs::File;
-use std::io::Read;
 use std::io::prelude::*;
+use std::io::Read;
 
 const THEME: &str = "ansi";
 

@@ -2,8 +2,8 @@ use clap::{Parser, Subcommand};
 
 /// A simple program to greet a person.
 #[derive(Debug, Parser)]
-#[command(name="v2")]
-#[command(about="Interact with OpenAI's ChatGPT through the terminal")]
+#[command(name = "v2")]
+#[command(about = "Interact with OpenAI's ChatGPT through the terminal")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -59,7 +59,7 @@ enum Commands {
     New {
         #[command(subcommand)]
         command: NewCommand,
-    }
+    },
 }
 
 #[derive(Debug, Subcommand, Clone)]

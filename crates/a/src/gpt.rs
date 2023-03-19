@@ -1,16 +1,16 @@
-use log::{debug, info, warn, error};
-use std::time::Duration;
+use crate::util::get_current_date;
+use log::{debug, error, info, warn};
 use reqwest::{
     blocking::Client,
     header::{HeaderMap, HeaderValue},
 };
 use serde::{Deserialize, Serialize};
-use std::io::Read;
 use std::error::Error;
+use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
-use crate::util::get_current_date;
-use std::fmt;
+use std::io::Read;
+use std::time::Duration;
 
 use gpt_tokenizer::Default;
 
@@ -59,12 +59,12 @@ struct ChatResponseMessage {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ChatResponse {
-    message: ChatResponseMessage
+    message: ChatResponseMessage,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ChatError {
-    message: String
+    message: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -98,14 +98,17 @@ where
                 }
 
                 if client.prompt.messages.len() < 3 {
-                    error!("Prompt is to big. Reduce the prompt size or delete the {} file", client.last_request_path);
+                    error!(
+                        "Prompt is to big. Reduce the prompt size or delete the {} file",
+                        client.last_request_path
+                    );
                     std::process::exit(1);
                 }
                 info!("Removing oldest chat interaction");
                 client.prompt.messages.remove(1);
                 client.prompt.messages.remove(1);
                 debug!("Retrying request [{}]", retries);
-            },
+            }
             Err(e) => {
                 error!("Uncaught error: {:#?}", e);
                 std::process::exit(2);
@@ -116,13 +119,22 @@ where
 
 fn make_api_request(client: &mut GPTClient) -> BoxResult<String> {
     info!("Calculating estimated_tokens");
-    let text = client.prompt.messages.iter().map(|item| item.content.to_owned()).collect::<Vec<_>>().join("\n");
+    let text = client
+        .prompt
+        .messages
+        .iter()
+        .map(|item| item.content.to_owned())
+        .collect::<Vec<_>>()
+        .join("\n");
     let estimated_tokens = client.tokenizer.encode(&text).len();
 
     info!("estimated_tokens = {}", estimated_tokens);
 
     if estimated_tokens as u32 > crate::MAX_TOKENS {
-        info!("Estimated tokens is bigger than {}. Reducing the prompt context and retrying", crate::MAX_TOKENS as f32 / 2.0);
+        info!(
+            "Estimated tokens is bigger than {}. Reducing the prompt context and retrying",
+            crate::MAX_TOKENS as f32 / 2.0
+        );
         client.prompt.messages.remove(1);
         client.prompt.messages.remove(1);
         return make_api_request(client);
@@ -180,7 +192,9 @@ impl GPTClient {
         GPTClient {
             api_key,
             url: String::from(OPEN_API_URL),
-            last_request_path: String::from(crate::CONFIG_DIRECTORY_PATH) + "/" + &String::from(crate::LAST_REQUEST_FILE),
+            last_request_path: String::from(crate::CONFIG_DIRECTORY_PATH)
+                + "/"
+                + &String::from(crate::LAST_REQUEST_FILE),
             tokenizer: Default::new(),
             prompt: Prompt {
                 model: String::from(MODEL),
@@ -189,8 +203,8 @@ impl GPTClient {
                 n: N,
                 presence_penalty: PRESENCE_PENALTY,
                 frequency_penalty: FREQUENCY_PENALTY,
-                messages: Vec::new()
-            }
+                messages: Vec::new(),
+            },
         }
     }
 
@@ -205,7 +219,10 @@ impl GPTClient {
     }
 
     fn read_and_deserialize(&self) -> BoxResult<Vec<ChatMessage>> {
-        info!("Opening/creating storage config directory {}", crate::CONFIG_DIRECTORY_PATH);
+        info!(
+            "Opening/creating storage config directory {}",
+            crate::CONFIG_DIRECTORY_PATH
+        );
         match crate::util::create_dir_if_not_exist(crate::CONFIG_DIRECTORY_PATH) {
             Ok(_) => (),
             Err(e) => {
@@ -214,9 +231,15 @@ impl GPTClient {
             }
         }
 
-        info!("Opening storage last request file {}", &self.last_request_path);
+        info!(
+            "Opening storage last request file {}",
+            &self.last_request_path
+        );
         let mut file = File::open(&self.last_request_path)?;
-        info!("Reading storage last request file {}", &self.last_request_path);
+        info!(
+            "Reading storage last request file {}",
+            &self.last_request_path
+        );
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
         debug!("contents: {}", contents);
@@ -228,7 +251,7 @@ impl GPTClient {
         Ok(chat_messages)
     }
 
-        pub fn prompt(&mut self, prompt: String) -> BoxResult<String> {
+    pub fn prompt(&mut self, prompt: String) -> BoxResult<String> {
         info!("Creating system message prompt");
         self.prompt.messages.push(ChatMessage {
             role: String::from("system"),
@@ -238,7 +261,7 @@ impl GPTClient {
         info!("Loading last request file");
         let last_request: Vec<ChatMessage> = match self.read_and_deserialize() {
             Ok(v) => v,
-            Err(_) => Vec::new()
+            Err(_) => Vec::new(),
         };
 
         info!("Adding last requests to the message prompts");
@@ -249,7 +272,7 @@ impl GPTClient {
         info!("Adding current prompt");
         let message = ChatMessage {
             role: String::from("user"),
-            content: String::from(&prompt)
+            content: String::from(&prompt),
         };
 
         self.prompt.messages.push(message);
@@ -263,7 +286,7 @@ impl GPTClient {
         self.prompt.messages.drain(..1);
         self.prompt.messages.push(ChatMessage {
             role: String::from("assistant"),
-            content: content.to_string()
+            content: content.to_string(),
         });
         self.serialize_and_store()?;
 

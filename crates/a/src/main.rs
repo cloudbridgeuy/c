@@ -1,5 +1,5 @@
-use log::{info, debug, error};
 use a;
+use log::{debug, error, info};
 
 const WHISPER_TRIGGER: &str = "whisper";
 
@@ -35,11 +35,13 @@ fn main() {
                 std::process::exit(1);
             }
         };
-        (text.clone(), text.split_whitespace().next().unwrap_or("text").to_string())
+        (
+            text.clone(),
+            text.split_whitespace().next().unwrap_or("text").to_string(),
+        )
     } else {
         tuple.clone()
     };
-
 
     let mut response = match client.prompt(prompt) {
         Ok(response) => response,

@@ -1,10 +1,10 @@
-use std::error::Error;
-use duct::cmd;
-use bunt::println;
 use crate::cli;
 use crate::utils;
+use bunt::println;
+use duct::cmd;
+use std::error::Error;
 
-pub fn run(args: &cli::RunArgs) -> Result<(), Box<dyn Error>>{
+pub fn run(args: &cli::RunArgs) -> Result<(), Box<dyn Error>> {
     let mut arguments = vec!["run", "--bin", &args.name];
 
     match &args.args {
@@ -17,7 +17,7 @@ pub fn run(args: &cli::RunArgs) -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-pub fn build(args: &cli::BuildArgs) -> Result<(), Box<dyn Error>>{
+pub fn build(args: &cli::BuildArgs) -> Result<(), Box<dyn Error>> {
     let mut arguments = vec!["build", "--bin", &args.name];
 
     if args.release {
@@ -29,7 +29,7 @@ pub fn build(args: &cli::BuildArgs) -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-fn release(name: &str) -> Result<(), Box<dyn Error>>{
+fn release(name: &str) -> Result<(), Box<dyn Error>> {
     let buid_args = cli::BuildArgs {
         name: name.to_string(),
         release: true,
@@ -40,7 +40,7 @@ fn release(name: &str) -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-pub fn install(args: &cli::InstallArgs) -> Result<(), Box<dyn Error>>{
+pub fn install(args: &cli::InstallArgs) -> Result<(), Box<dyn Error>> {
     release(&args.name)?;
 
     let target_path = "target/release/".to_string() + &args.name;
@@ -51,7 +51,7 @@ pub fn install(args: &cli::InstallArgs) -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-pub fn publish(args: &cli::PublishArgs) -> Result<(), Box<dyn Error>>{
+pub fn publish(args: &cli::PublishArgs) -> Result<(), Box<dyn Error>> {
     let mut arguments = vec!["publish", "--package", &args.name];
 
     if args.dry_run {
@@ -63,7 +63,7 @@ pub fn publish(args: &cli::PublishArgs) -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-pub fn github(args: &cli::GithubArgs) -> Result<(), Box<dyn Error>>{
+pub fn github(args: &cli::GithubArgs) -> Result<(), Box<dyn Error>> {
     release(&args.name)?;
 
     let version = utils::create_tag();
@@ -76,9 +76,19 @@ pub fn github(args: &cli::GithubArgs) -> Result<(), Box<dyn Error>>{
     cmd!("git", "push", "origin", &version).run()?;
     println!("{$magenta}Creating {[yellow]} release{/$}", &version);
     cmd!("gh", "release", "create", &version, "--title", &version, "--notes", &notes).run()?;
-    println!("{$magenta}Uploading {[yellow]} release binary{/$}", &version);
-    cmd!("gh", "release", "upload", &version, &target_path, "--clobber").run()?;
+    println!(
+        "{$magenta}Uploading {[yellow]} release binary{/$}",
+        &version
+    );
+    cmd!(
+        "gh",
+        "release",
+        "upload",
+        &version,
+        &target_path,
+        "--clobber"
+    )
+    .run()?;
 
     Ok(())
 }
-

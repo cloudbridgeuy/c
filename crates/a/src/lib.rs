@@ -8,10 +8,16 @@ pub mod record;
 
 /// Max tokens that will be used for the prompt. Thise leaves
 /// 1096 tokens for ChatGPT response.
-const MAX_TOKENS: u32 = 3000;
+const MAX_TOKENS: u32 = 7000;
 const LAST_REQUEST_FILE: &str = "last_request.json";
 const CONFIG_DIRECTORY_PATH: &str = "/tmp/a";
 
+/// Gathers all arguments provided to the binary. If no arguments are provided then stdin
+/// is used. The first argument will always be considered the programming language.
+///
+/// # Errors
+///
+/// This function will return an error if .
 pub fn gather_args(args: &mut Vec<String>) -> Result<(String, String), Box<dyn Error>> {
     let lang;
     let mut prompt = String::new();

@@ -1,8 +1,8 @@
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Debug, Parser)]
-#[command(name="xtasks")]
-#[command(about="Run project tasks using rust instead of scripts")]
+#[command(name = "xtasks")]
+#[command(about = "Run project tasks using rust instead of scripts")]
 pub struct App {
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -71,4 +71,3 @@ pub struct GithubArgs {
     #[arg(short, long)]
     pub name: String,
 }
-

@@ -1,7 +1,7 @@
 use log::info;
-use std::io::{self, Read};
-use std::process::{ Command, Stdio };
 use serde::{Deserialize, Serialize};
+use std::io::{self, Read};
+use std::process::{Command, Stdio};
 
 #[derive(Deserialize, Serialize, Debug)]
 struct TranscriptionResponse {
@@ -21,8 +21,13 @@ pub fn whisper(api_key: String) -> std::io::Result<String> {
     let tmp = String::from_utf8(
         Command::new("mktemp")
             .output()
-            .expect("Failed to create temp file").stdout
-        ).expect("Failed to parse mktemp").trim().to_string() + ".wav";
+            .expect("Failed to create temp file")
+            .stdout,
+    )
+    .expect("Failed to parse mktemp")
+    .trim()
+    .to_string()
+        + ".wav";
     let mut rec = Command::new("rec")
         .arg("-c")
         .arg("1")
@@ -77,8 +82,11 @@ pub fn whisper(api_key: String) -> std::io::Result<String> {
             .arg("model=whisper-1")
             .output()
             .expect("Failed to execute request to the Whisper API")
-            .stdout
-    ).expect("Failed to parse reponse").trim().to_string();
+            .stdout,
+    )
+    .expect("Failed to parse reponse")
+    .trim()
+    .to_string();
 
     info!("Removing the whisper.mp3 file");
     Command::new("rm")
@@ -93,4 +101,3 @@ pub fn whisper(api_key: String) -> std::io::Result<String> {
 
     Ok(body.text)
 }
-

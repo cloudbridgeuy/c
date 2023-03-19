@@ -27,4 +27,3 @@ Sequences of characters commonly found next to each other may be grouped togethe
     println!("Rule of Thumb: {}", text.split(" ").count() * 4 / 3);
     println!("Tokens: {}", encoded.len());
 }
-

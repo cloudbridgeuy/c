@@ -16,25 +16,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = cli::App::parse();
 
     match &cli.command {
-        Some(command) => {
-            match command {
-                cli::Commands::Run(args) => {
-                    scripts::run(args)
-                }
-                cli::Commands::Build(args) => {
-                    scripts::build(args)
-                }
-                cli::Commands::Publish(args) => {
-                    scripts::publish(args)
-                }
-                cli::Commands::Github(args) => {
-                    scripts::github(args)
-                }
-                cli::Commands::Install(args) => {
-                    scripts::install(args)
-                }
-            }
-        }
+        Some(command) => match command {
+            cli::Commands::Run(args) => scripts::run(args),
+            cli::Commands::Build(args) => scripts::build(args),
+            cli::Commands::Publish(args) => scripts::publish(args),
+            cli::Commands::Github(args) => scripts::github(args),
+            cli::Commands::Install(args) => scripts::install(args),
+        },
         None => {
             println!("No command specified.");
             std::process::exit(1);

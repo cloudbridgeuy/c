@@ -7,20 +7,22 @@
 //! The following example shows how you need to process this files in order to create
 //! your `encode` and `decode` functions.
 
-use std::iter::FromIterator;
 use std::collections::HashMap;
+use std::iter::FromIterator;
 
-use gpt_tokenizer::{ENCODER_JSON, VOCAB_BPE, bpe_ranks, bytes_to_unicode, decode, encode};
+use gpt_tokenizer::{bpe_ranks, bytes_to_unicode, decode, encode, ENCODER_JSON, VOCAB_BPE};
 
 fn main() {
     let encoder: HashMap<String, u32> = serde_json::from_str(ENCODER_JSON).unwrap();
-    let decoder: HashMap<u32, String> = HashMap::from_iter(encoder.clone().into_iter().map(|(k, v)| (v, k)));
+    let decoder: HashMap<u32, String> =
+        HashMap::from_iter(encoder.clone().into_iter().map(|(k, v)| (v, k)));
 
     let lines: Vec<String> = VOCAB_BPE.lines().map(|line| line.to_owned()).collect();
     let bpe_ranks = bpe_ranks(&lines);
 
     let byte_encoder = bytes_to_unicode();
-    let byte_decoder: HashMap<char, u32> = HashMap::from_iter(byte_encoder.clone().into_iter().map(|(k, v)| (v, k)));
+    let byte_decoder: HashMap<char, u32> =
+        HashMap::from_iter(byte_encoder.clone().into_iter().map(|(k, v)| (v, k)));
 
     let text = r#"I'Many words map to one token, but some don't: indivisible.
 
@@ -42,4 +44,3 @@ Sequences of characters commonly found next to each other may be grouped togethe
     println!("Rule of Thumb: {}", text.split(" ").count() * 4 / 3);
     println!("Tokens: {}", encoded.len());
 }
-
