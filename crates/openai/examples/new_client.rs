@@ -1,7 +1,7 @@
-use openai::error::OpenAiError;
-use openai::Client;
+use openai::error::ClientError;
+use openai::{Authenticated, Client};
 
-fn get_client() -> Client {
+fn get_client() -> Client<Authenticated> {
     match Client::new()
         .set_api_key("sk-xvQv2vf8yZ1K2pQ3q9OZqmXj3Xe5R4vZuK")
         .set_model("gpt-4")
@@ -14,7 +14,7 @@ fn get_client() -> Client {
         Ok(client) => client,
         Err(err) => {
             match err {
-                OpenAiError::InvalidTopP { top_p: _ } => {
+                ClientError::InvalidTopP { top_p: _ } => {
                     println!("custom error message. err: {}", err);
                     std::process::exit(3);
                 }
@@ -29,5 +29,5 @@ fn get_client() -> Client {
 
 fn main() {
     let client = get_client();
-    println!("{:#?}", client);
+    client.completion("Hello", "It's me");
 }

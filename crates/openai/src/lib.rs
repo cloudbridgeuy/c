@@ -2,10 +2,13 @@ use reqwest::Client as ReqwestClient;
 
 pub mod error;
 
+pub struct Unauthenticated;
+pub struct Authenticated;
+
 #[derive(Debug)]
-pub struct Client {
+pub struct Client<State = Unauthenticated> {
     _client: ReqwestClient,
-    api_key: Option<String>,
+    api_key: String,
     endpoint: String,
     model: String,
     max_tokens: Option<u32>,
@@ -15,6 +18,7 @@ pub struct Client {
     echo: bool,
     presence_penalty: f32,
     frequency_penalty: f32,
+    state: std::marker::PhantomData<State>,
 }
 
 const OPEN_API_URL: &str = "https://api.openai.com/v1/chat/completions";
@@ -26,12 +30,11 @@ const PRESENCE_PENALTY: f32 = 0.0;
 const FREQUENCY_PENALTY: f32 = 0.0;
 
 impl Client {
-    /// Creates a new [`OpenAiClient`].
-    pub fn new() -> Client {
+    pub fn new() -> Client<Unauthenticated> {
         Client {
             _client: ReqwestClient::new(),
             model: MODEL.to_string(),
-            api_key: None,
+            api_key: Default::default(),
             endpoint: String::from(OPEN_API_URL),
             max_tokens: None,
             temperature: TEMPERATURE,
@@ -40,18 +43,48 @@ impl Client {
             echo: false,
             presence_penalty: PRESENCE_PENALTY,
             frequency_penalty: FREQUENCY_PENALTY,
+            state: std::marker::PhantomData::<Unauthenticated>,
+        }
+    }
+}
+
+impl<State> Client<State> {
+    /// Configures the OpenAI API key.
+    pub fn set_api_key(self, api_key: &str) -> Client<Authenticated> {
+        let Client {
+            _client,
+            model,
+            api_key: _,
+            endpoint,
+            max_tokens,
+            temperature,
+            top_p,
+            n,
+            echo,
+            presence_penalty,
+            frequency_penalty,
+            state: _,
+        } = self;
+
+        Client {
+            _client,
+            model,
+            api_key: api_key.to_string(),
+            endpoint,
+            max_tokens,
+            temperature,
+            top_p,
+            n,
+            echo,
+            presence_penalty,
+            frequency_penalty,
+            state: std::marker::PhantomData::<Authenticated>,
         }
     }
 
     /// Configures the OpenAI API endpoint.
     pub fn set_endpoint(mut self, endpoint: &str) -> Self {
         self.endpoint = endpoint.to_string();
-        self
-    }
-
-    /// Configures the OpenAI API key.
-    pub fn set_api_key(mut self, api_key: &str) -> Self {
-        self.api_key = Some(api_key.to_string());
         self
     }
 
@@ -82,12 +115,12 @@ impl Client {
     /// make the output more determnistic.
     ///
     /// It's recommended to alter this or the `top_p` parameter, but not both.
-    pub fn with_temperature(mut self, temperature: f32) -> Result<Self, error::OpenAiError> {
+    pub fn with_temperature(mut self, temperature: f32) -> Result<Self, error::ClientError> {
         if (0.0..=2.0).contains(&temperature) {
             self.temperature = temperature;
             Ok(self)
         } else {
-            Err(error::OpenAiError::InvalidTemperature { temperature })
+            Err(error::ClientError::InvalidTemperature { temperature })
         }
     }
 
@@ -97,12 +130,12 @@ impl Client {
     /// considered.
     ///
     /// It's recommended to alter this or the `temperature` parameter, but not both.
-    pub fn with_top_p(mut self, top_p: f32) -> Result<Self, error::OpenAiError> {
+    pub fn with_top_p(mut self, top_p: f32) -> Result<Self, error::ClientError> {
         if (0.0..=1.0).contains(&top_p) {
             self.top_p = top_p;
             Ok(self)
         } else {
-            Err(error::OpenAiError::InvalidTopP { top_p })
+            Err(error::ClientError::InvalidTopP { top_p })
         }
     }
 
@@ -118,12 +151,12 @@ impl Client {
     pub fn with_presence_penalty(
         mut self,
         presence_penalty: f32,
-    ) -> Result<Self, error::OpenAiError> {
+    ) -> Result<Self, error::ClientError> {
         if (-2.0..=2.0).contains(&presence_penalty) {
             self.presence_penalty = presence_penalty;
             Ok(self)
         } else {
-            Err(error::OpenAiError::InvalidPresencePenalty { presence_penalty })
+            Err(error::ClientError::InvalidPresencePenalty { presence_penalty })
         }
     }
 
@@ -133,17 +166,20 @@ impl Client {
     pub fn with_frequency_penalty(
         mut self,
         frequency_penalty: f32,
-    ) -> Result<Self, error::OpenAiError> {
+    ) -> Result<Self, error::ClientError> {
         if (-2.0..=2.0).contains(&frequency_penalty) {
             self.frequency_penalty = frequency_penalty;
             Ok(self)
         } else {
-            Err(error::OpenAiError::InvalidFrequencyPenalty { frequency_penalty })
+            Err(error::ClientError::InvalidFrequencyPenalty { frequency_penalty })
         }
     }
+}
 
+impl Client<Authenticated> {
     /// Creates a completion for the provided prompt, suffix, and parameters.
     pub fn completion(&self, prompt: &str, suffix: &str) -> String {
+        format!("OPEN_AI_KEY = {}", self.api_key);
         format!("{}{}", prompt, suffix)
     }
 }
