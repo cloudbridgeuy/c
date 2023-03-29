@@ -3,12 +3,12 @@ use std::error::Error;
 use std::io;
 
 pub mod gpt;
-pub mod util;
 pub mod record;
+pub mod util;
 
 /// Max tokens that will be used for the prompt. Thise leaves
 /// 1096 tokens for ChatGPT response.
-const MAX_TOKENS: u32 = 7000;
+const MAX_TOKENS: u32 = 3000;
 const LAST_REQUEST_FILE: &str = "last_request.json";
 const CONFIG_DIRECTORY_PATH: &str = "/tmp/a";
 
@@ -32,8 +32,8 @@ pub fn gather_args(args: &mut Vec<String>) -> Result<(String, String), Box<dyn E
     args.remove(0);
     if args.is_empty() {
         if let Err(e) = io::stdin().read_line(&mut prompt) {
-           error!("Could not read from stdin: {}", e);
-           return Err(Box::new(e));
+            error!("Could not read from stdin: {}", e);
+            return Err(Box::new(e));
         }
 
         let words: Vec<String> = prompt.split_whitespace().map(|s| s.to_string()).collect();

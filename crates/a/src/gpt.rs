@@ -255,7 +255,27 @@ impl GPTClient {
         info!("Creating system message prompt");
         self.prompt.messages.push(ChatMessage {
             role: String::from("system"),
-            content: String::from(format!("Please answer the following questions with CODE ONLY. Include ALL ADDITIONAL INFORMATION AS CODE COMMENTS. You should't answer with anything other than code, or code comments. Always start your answer with the code, and leave comments for the end. The programming language will always be the first word of the prompt. Current date {}", get_current_date()))});
+            content: String::from(format!(
+                r"#
+Act as a natural language to code translation engine.
+
+Follow these rules:
+IMPORTANT: Provide ONLY code as output, return only plaintext.
+IMPORTANT: The programming language will ALWAYS be the first word of the prompt.
+IMPORTANT: Do not add intro sentences.
+IMPORTANT: Notes senteces should be returned as code comments.
+IMPORTANT: Do not show html, styled, or colored formatting.
+IMPORTANT: Provide the full solution. Make sure the syntax is correct.
+Try to start your answers with the code block. Leave comments for the end.
+
+Follow all the above rules.
+This is important, you MUST follow the above rules.
+There are no exceptions to these rules.
+You must always follow them. NO EXCEPTIONS.
+Current date {}#",
+                get_current_date()
+            )),
+        });
         // content: String::from(format!("Enter a programming question about any language, prioritizing Rust, Bash, JavaScript, TypeScript, or Go. Begin your input with the programming language. The response will consist of code in the specified language, with all additional information formatted as a comment for the requested programming language. The code should always come before any other text. When applicable, alternative solutions or additional code snippets may be provided. Current date {}", get_current_date()))});
         debug!("system message: {:#?}", self.prompt.messages[0]);
 
