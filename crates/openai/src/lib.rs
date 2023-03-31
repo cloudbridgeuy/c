@@ -1,6 +1,39 @@
-use reqwest::Client as ReqwestClient;
-
 pub mod error;
+
+use crate::error::OpenAi as OpenAiError;
+
+pub trait Client {
+    fn completions(&self, request: CompletionsRequestBody) -> Result<String, OpenAiError>;
+    fn chat(&self, request: ChatRequestBody) -> Result<String, OpenAiError>;
+}
+
+#[allow(dead_code)]
+pub struct CompletionsRequestBody {
+    echo: bool,
+    frequency_penalty: f32,
+    max_tokens: Option<u32>,
+    model: String,
+    n: u32,
+    presence_penalty: f32,
+    prompt: String,
+    suffix: String,
+    temperature: f32,
+    top_p: f32,
+    user: Option<String>,
+}
+
+#[allow(dead_code)]
+pub struct ChatRequestBody {
+    frequency_penalty: f32,
+    max_tokens: Option<u32>,
+    messages: Vec<ChatMessage>,
+    model: String,
+    n: u32,
+    presence_penalty: f32,
+    temperature: f32,
+    top_p: f32,
+    user: Option<String>,
+}
 
 #[derive(Debug)]
 pub struct Completion;
@@ -8,8 +41,8 @@ pub struct Completion;
 pub struct Chat;
 
 #[derive(Debug)]
-pub struct OpenAi {
-    _client: ReqwestClient,
+pub struct OpenAi<C: Client> {
+    client: C,
     api_key: String,
     endpoint: String,
 }
@@ -22,10 +55,10 @@ enum OpenAiApi {
 
 #[derive(Debug)]
 struct CompletionConfig {
-    model: String,
-    echo: bool,
-    prompt: Option<String>,
-    suffix: Option<String>,
+    pub model: String,
+    pub echo: bool,
+    pub prompt: String,
+    pub suffix: String,
 }
 
 #[derive(Debug)]
@@ -34,15 +67,16 @@ struct ChatConfig {
     messages: Vec<ChatMessage>,
 }
 
-#[derive(Debug)]
-struct ChatMessage {
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+pub struct ChatMessage {
     role: String,
     content: String,
 }
 
 #[derive(Debug)]
-pub struct Client<'a, State = Completion> {
-    openai: &'a OpenAi,
+pub struct Api<'a, C: Client, State = Completion> {
+    openai: &'a OpenAi<C>,
     temperature: f32,
     top_p: f32,
     n: u32,
@@ -63,10 +97,10 @@ const N: u32 = 1;
 const PRESENCE_PENALTY: f32 = 0.0;
 const FREQUENCY_PENALTY: f32 = 0.0;
 
-impl<'a> OpenAi {
-    pub fn new(api_key: String) -> Self {
+impl<'a, C: Client> OpenAi<C> {
+    pub fn new(api_key: String, client: C) -> Self {
         OpenAi {
-            _client: ReqwestClient::new(),
+            client,
             api_key: api_key.to_string(),
             endpoint: OPEN_API_URL.to_string(),
         }
@@ -82,8 +116,8 @@ impl<'a> OpenAi {
         self
     }
 
-    pub fn completions(&'a self) -> Client<Completion> {
-        Client {
+    pub fn completions(&'a self) -> Api<C, Completion> {
+        Api {
             openai: self,
             max_tokens: None,
             temperature: TEMPERATURE,
@@ -95,15 +129,15 @@ impl<'a> OpenAi {
             api: OpenAiApi::CompletionApi(CompletionConfig {
                 model: COMPLETION_MODEL.to_string(),
                 echo: false,
-                prompt: None,
-                suffix: None,
+                prompt: "".to_string(),
+                suffix: "".to_string(),
             }),
             state: std::marker::PhantomData::<Completion>,
         }
     }
 
-    pub fn chat(&self) -> Client<Chat> {
-        Client {
+    pub fn chat(&self) -> Api<C, Chat> {
+        Api {
             openai: self,
             max_tokens: None,
             temperature: TEMPERATURE,
@@ -121,7 +155,7 @@ impl<'a> OpenAi {
     }
 }
 
-impl Client<'_, Completion> {
+impl<C: Client + std::fmt::Debug> Api<'_, C, Completion> {
     /// Echo back the prompt in addition to the completion.
     pub fn with_echo(mut self, echo: bool) -> Self {
         match self.api {
@@ -144,22 +178,145 @@ impl Client<'_, Completion> {
         self
     }
 
+    /// Set the suffix value for the completion.
+    pub fn with_suffix(mut self, suffix: &str) -> Self {
+        match self.api {
+            OpenAiApi::CompletionApi(config) => {
+                let CompletionConfig {
+                    echo,
+                    model,
+                    suffix: _,
+                    prompt,
+                } = config;
+                self.api = OpenAiApi::CompletionApi(CompletionConfig {
+                    echo,
+                    model,
+                    suffix: suffix.to_string(),
+                    prompt,
+                })
+            }
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    // Set the prefix value for the completion.
+    pub fn with_prompt(mut self, prompt: &str) -> Self {
+        match self.api {
+            OpenAiApi::CompletionApi(config) => {
+                let CompletionConfig {
+                    echo,
+                    model,
+                    prompt: _,
+                    suffix,
+                } = config;
+                self.api = OpenAiApi::CompletionApi(CompletionConfig {
+                    echo,
+                    model,
+                    prompt: prompt.to_string(),
+                    suffix,
+                })
+            }
+            _ => unreachable!(),
+        }
+        self
+    }
+
     /// Create a chat completion
-    pub fn create(&self, prompt: &str) {
-        println!("Self: {:#?}", self);
-        println!("Prompt: {}", prompt);
+    pub fn create(&self) -> Result<String, OpenAiError> {
+        match &self.api {
+            OpenAiApi::CompletionApi(config) => {
+                self.openai.client.completions(CompletionsRequestBody {
+                    echo: config.echo,
+                    frequency_penalty: self.frequency_penalty,
+                    max_tokens: self.max_tokens,
+                    model: config.model.to_owned(),
+                    n: self.n,
+                    presence_penalty: self.presence_penalty,
+                    prompt: config.prompt.to_owned(),
+                    suffix: config.suffix.to_owned(),
+                    temperature: self.temperature,
+                    top_p: self.top_p,
+                    user: self.user.clone(),
+                })
+            }
+            _ => unreachable!(),
+        }
     }
 }
 
-impl Client<'_, Chat> {
+impl<C: Client + std::fmt::Debug> Api<'_, C, Chat> {
+    /// Set the system prompt for the messages
+    pub fn system_prompt(&mut self, prompt: &str) -> &mut Self {
+        match &mut self.api {
+            OpenAiApi::ChatApi(config) => {
+                config.messages.insert(
+                    0,
+                    ChatMessage {
+                        role: "system".to_string(),
+                        content: prompt.to_string(),
+                    },
+                );
+            }
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Replace the chat messages vector
+    pub fn replace(&mut self, new_messages: &[ChatMessage]) -> &mut Self {
+        match &mut self.api {
+            OpenAiApi::ChatApi(config) => {
+                config.messages.extend(new_messages.iter().cloned());
+            }
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Get the current chat messages
+    pub fn messages(self) -> Vec<ChatMessage> {
+        match self.api {
+            OpenAiApi::ChatApi(config) => config.messages,
+            _ => unreachable!(),
+        }
+    }
+
     /// Create a chat completion
-    pub fn create(&self, prompt: &str) {
-        println!("Self: {:#?}", self);
-        println!("Prompt: {}", prompt);
+    pub fn create(&mut self, prompt: &str) -> Result<String, OpenAiError> {
+        match &mut self.api {
+            OpenAiApi::ChatApi(config) => {
+                config.messages.push(ChatMessage {
+                    role: "user".to_string(),
+                    content: prompt.to_string(),
+                });
+                match self.openai.client.chat(ChatRequestBody {
+                    temperature: self.temperature,
+                    presence_penalty: self.presence_penalty,
+                    frequency_penalty: self.frequency_penalty,
+                    max_tokens: self.max_tokens,
+                    model: config.model.to_owned(),
+                    n: self.n,
+                    messages: config.messages.clone(),
+                    user: self.user.clone(),
+                    top_p: self.top_p,
+                }) {
+                    Ok(response) => {
+                        config.messages.push(ChatMessage {
+                            role: "assistant".to_string(),
+                            content: response.to_string(),
+                        });
+                        Ok(response)
+                    }
+                    Err(err) => Err(err),
+                }
+            }
+            _ => unreachable!(),
+        }
     }
 }
 
-impl<'a, State> Client<'a, State> {
+impl<'a, C: Client, State> Api<'a, C, State> {
     /// Configures the ID of the OpenAI model to use.
     /// You can use the `completions.list` method to get a list of all available models.
     pub fn with_model(mut self, model: &str) -> Self {
@@ -209,12 +366,12 @@ impl<'a, State> Client<'a, State> {
     /// make the output more determnistic.
     ///
     /// It's recommended to alter this or the `top_p` parameter, but not both.
-    pub fn with_temperature(mut self, temperature: f32) -> Result<Self, error::ClientError> {
+    pub fn with_temperature(mut self, temperature: f32) -> Result<Self, OpenAiError> {
         if (0.0..=2.0).contains(&temperature) {
             self.temperature = temperature;
             Ok(self)
         } else {
-            Err(error::ClientError::InvalidTemperature { temperature })
+            Err(OpenAiError::InvalidTemperature { temperature })
         }
     }
 
@@ -224,42 +381,36 @@ impl<'a, State> Client<'a, State> {
     /// considered.
     ///
     /// It's recommended to alter this or the `temperature` parameter, but not both.
-    pub fn with_top_p(mut self, top_p: f32) -> Result<Self, error::ClientError> {
+    pub fn with_top_p(mut self, top_p: f32) -> Result<Self, OpenAiError> {
         if (0.0..=1.0).contains(&top_p) {
             self.top_p = top_p;
             Ok(self)
         } else {
-            Err(error::ClientError::InvalidTopP { top_p })
+            Err(OpenAiError::InvalidTopP { top_p })
         }
     }
 
     /// Configures the presence penalty to use, which is a number betweeen -2.0 and 2.0 where
     /// positive values penalize new tokens based on whether they appear in the text so far,
     /// increasing the model's likelihood to talk about new topics.
-    pub fn with_presence_penalty(
-        mut self,
-        presence_penalty: f32,
-    ) -> Result<Self, error::ClientError> {
+    pub fn with_presence_penalty(mut self, presence_penalty: f32) -> Result<Self, OpenAiError> {
         if (-2.0..=2.0).contains(&presence_penalty) {
             self.presence_penalty = presence_penalty;
             Ok(self)
         } else {
-            Err(error::ClientError::InvalidPresencePenalty { presence_penalty })
+            Err(OpenAiError::InvalidPresencePenalty { presence_penalty })
         }
     }
 
     /// Configures the frequency penalty, which is a number between -2.0 and 2.0 where positive
     /// values penalize new tokens based on their existing frequency in the text so far, decreasing
     /// the model's likelihood to repeat the same line verbatim.
-    pub fn with_frequency_penalty(
-        mut self,
-        frequency_penalty: f32,
-    ) -> Result<Self, error::ClientError> {
+    pub fn with_frequency_penalty(mut self, frequency_penalty: f32) -> Result<Self, OpenAiError> {
         if (-2.0..=2.0).contains(&frequency_penalty) {
             self.frequency_penalty = frequency_penalty;
             Ok(self)
         } else {
-            Err(error::ClientError::InvalidFrequencyPenalty { frequency_penalty })
+            Err(OpenAiError::InvalidFrequencyPenalty { frequency_penalty })
         }
     }
 }

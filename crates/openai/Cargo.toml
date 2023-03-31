@@ -9,16 +9,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[[bin]]
-name = "openai"
-path = "src/main.rs"
-
 [lib]
 name = "openai"
 path = "src/lib.rs"
 
 [dependencies]
 custom_error = "1.9.2"                                  # Define custom errors without boilerplate using the custom_error! macro.
-reqwest = { version = "0.11.14", features = ["json"] }  # Higher level HTTP client library
-
-
