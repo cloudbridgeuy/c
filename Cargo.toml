@@ -19,3 +19,5 @@ debug = 0
 # local crates
 a = { path = "./crates/a", version = "0.0.0" }
 b = { path = "./crates/b", version = "0.0.0" }
+openai = { path = "./crates/openai", version = "0.0.0" }
+

@@ -18,4 +18,11 @@ name = "b"
 path = "src/lib.rs"
 
 [dependencies]
+env_logger = "0.10.0"
+log = "0.4.17"
 clap = { version = "4.1.8", features = ["derive"] }
+openai = { path = "../openai", version = "0.0.0" }
+serde_either = "0.2.1"          # Simple set to enums to deserialize and serialize data that can either be string, struct or vec
+serde_json = "1.0.93"
+serde_yaml = "0.9.19"                # YAML data format for Serde
+
