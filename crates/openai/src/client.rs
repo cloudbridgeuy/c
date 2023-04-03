@@ -126,7 +126,7 @@ impl Client {
         let mut url = self.base_url.clone();
         url.push_str(endpoint);
 
-        log::debug!("POST: {}", url);
+        log::debug!("POST: {}1", url);
 
         match self
             .reqwest

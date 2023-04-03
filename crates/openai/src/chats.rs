@@ -7,16 +7,13 @@ use serde_either::SingleOrVec;
 use crate::client::Client;
 use crate::error;
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct CompletionsApi {
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ChatsApi {
     #[serde(skip)]
     client: Client,
-    // Completions Properties
+    // Chats Properties
     pub model: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prompt: Option<SingleOrVec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub suffix: Option<String>,
+    pub messages: Vec<ChatMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -26,11 +23,7 @@ pub struct CompletionsApi {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub n: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    stream: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    logprobs: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    echo: Option<bool>,
+    pub stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stop: Option<SingleOrVec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,141 +31,70 @@ pub struct CompletionsApi {
     #[serde(skip_serializing_if = "Option::is_none")]
     frequency_penalty: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub best_of: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub logit_bias: Option<HashMap<String, f32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Completions {
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct Chat {
     pub id: String,
     pub object: String,
     pub created: u64,
-    pub choices: Vec<Choice>,
-    pub usage: Usage,
+    pub choices: Vec<ChatChoice>,
+    pub usage: ChatUsage,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Choice {
-    pub text: String,
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ChatChoice {
     pub index: u32,
-    pub logprobs: Option<f32>,
+    pub message: ChatMessage,
     pub finish_reason: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Usage {
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ChatUsage {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
     pub total_tokens: u32,
 }
 
-const DEFAULT_MODEL: &str = "text-davinci-003";
+const DEFAULT_MODEL: &str = "gpt-3.5-turbo";
 
-impl CompletionsApi {
-    /// Creates a new CompletionsApi.
-    pub fn new(api_key: String) -> Self {
-        let client = Client::new(api_key).expect("Failed to create client");
+impl ChatsApi {
+    pub fn new(api_key: String) -> Result<Self, error::OpenAi> {
+        let client = match Client::new(api_key) {
+            Ok(client) => client,
+            Err(err) => {
+                return Err(error::OpenAi::ClientError {
+                    body: err.to_string(),
+                });
+            }
+        };
 
         log::debug!("Created OpenAi HTTP Client");
 
-        CompletionsApi {
+        Ok(ChatsApi {
             client,
             model: String::from(DEFAULT_MODEL),
-            prompt: None,
-            suffix: None,
+            messages: Vec::new(),
             max_tokens: None,
             temperature: None,
             top_p: None,
             n: None,
             stream: None,
-            logprobs: None,
-            echo: None,
             stop: None,
             presence_penalty: None,
             frequency_penalty: None,
-            best_of: None,
             logit_bias: None,
             user: None,
-        }
-    }
-
-    /// Gets the value of the echo.
-    pub fn get_echo(self) -> Option<bool> {
-        self.echo
-    }
-
-    /// Sets the value of the echo.
-    pub fn set_echo(&mut self, echo: bool) -> Result<&mut Self, error::OpenAi> {
-        // Can't run 'echo' with 'suffix'
-        if let Some(_) = &self.suffix {
-            if echo {
-                return Err(error::OpenAi::InvalidEcho);
-            }
-        }
-        self.echo = Some(echo);
-
-        log::debug!("Set echo to {}", echo);
-
-        Ok(self)
-    }
-
-    /// Gets the value of the stream.
-    pub fn get_stream(self) -> Option<bool> {
-        self.stream
-    }
-
-    /// Sets the value of the stream.
-    pub fn set_stream(&mut self, stream: bool) -> Result<&mut Self, error::OpenAi> {
-        // Can't run 'stream' with 'suffix'
-        if let Some(_) = &self.best_of {
-            if stream {
-                return Err(error::OpenAi::InvalidStream);
-            }
-        }
-        self.stream = Some(stream);
-
-        log::debug!("Set stream to {}", stream);
-
-        Ok(self)
-    }
-
-    /// Gets the value of the suffix.
-    pub fn get_suffix(self) -> Option<String> {
-        self.suffix
-    }
-
-    /// Sets the value of the suffix.
-    pub fn set_suffix(&mut self, suffix: String) -> Result<&mut Self, error::OpenAi> {
-        // Can't run 'suffix' with 'suffix'
-        if let Some(_) = &self.echo {
-            return Err(error::OpenAi::InvalidSuffix);
-        }
-        self.suffix = Some(suffix);
-
-        log::debug!("Set suffix to {:?}", &self.suffix);
-
-        Ok(self)
-    }
-
-    /// Gets the value of the best_of.
-    pub fn get_best_of(self) -> Option<u32> {
-        self.best_of
-    }
-
-    /// Sets the value of the best_of.
-    pub fn set_best_of(&mut self, best_of: u32) -> Result<&mut Self, error::OpenAi> {
-        // Can't run 'best_of' with 'best_of'
-        if let Some(_) = &self.stream {
-            return Err(error::OpenAi::InvalidBestOf);
-        }
-        self.best_of = Some(best_of);
-
-        log::debug!("Set best_of to {:?}", &self.best_of);
-
-        Ok(self)
+        })
     }
 
     /// Gets the value of the temperature.
@@ -205,23 +127,6 @@ impl CompletionsApi {
         self.top_p = Some(top_p);
 
         log::debug!("Set top_p to {}", top_p);
-
-        Ok(self)
-    }
-
-    /// Gets the value of the logprobs.
-    pub fn get_logprobs(self) -> Option<f32> {
-        self.logprobs
-    }
-
-    /// Sets the value of the logprobs.
-    pub fn set_logprobs(&mut self, logprobs: f32) -> Result<&mut Self, error::OpenAi> {
-        if !(0.0..=5.0).contains(&logprobs) {
-            return Err(error::OpenAi::InvalidLogProbs { logprobs });
-        }
-        self.logprobs = Some(logprobs);
-
-        log::debug!("Set logprobs to {}", logprobs);
 
         Ok(self)
     }
@@ -291,8 +196,8 @@ impl CompletionsApi {
         Ok(self)
     }
 
-    /// Creates a completion for the provided parameters.
-    pub fn create(&self) -> Result<Completions, error::OpenAi> {
+    /// Creates a completion for the chat message
+    pub fn create(&self) -> Result<Chat, error::OpenAi> {
         let request = match serde_json::to_string(&self) {
             Ok(request) => request,
             Err(err) => {
@@ -302,7 +207,7 @@ impl CompletionsApi {
             }
         };
 
-        let body = match self.client.post("/completions", request) {
+        let body = match self.client.post("/chat/completions", request) {
             Ok(response) => match response.text() {
                 Ok(text) => text,
                 Err(e) => {
@@ -318,7 +223,9 @@ impl CompletionsApi {
             }
         };
 
-        let body: Completions = match serde_json::from_str(&body) {
+        println!("{}", body);
+
+        let body: Chat = match serde_json::from_str(&body) {
             Ok(body) => body,
             Err(e) => {
                 return Err(error::OpenAi::RequestError {

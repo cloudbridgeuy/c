@@ -2,8 +2,10 @@ use custom_error::custom_error;
 
 custom_error! {pub OpenAi
     InvalidStop{stop: String} = "stop value ({stop}) must be either 'left' or 'right'",
-    RequestError{body: String} = "request error:\n{body}",
+    RequestError{body: String} = "request error: {body}",
     ModelNotFound{model_name: String} = "model not found: {model_name}",
+    SerializationError{body: String} = "serialization error: {body}",
+    ClientError{body: String} = "client error:\n{body}",
     InvalidLogProbs{logprobs: f32} = "logprob value ({logprobs}) must be between 0 and 5",
     InvalidEcho = "'echo' cannot be used with 'suffix'",
     InvalidStream = "'stream' cannot be used with 'best_of'",
