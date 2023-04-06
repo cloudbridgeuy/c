@@ -69,6 +69,7 @@ dependencies = [
  "env_logger",
  "log",
  "openai",
+ "serde",
  "serde_either",
  "serde_json",
  "serde_yaml 0.9.19",

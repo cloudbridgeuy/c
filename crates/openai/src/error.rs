@@ -1,6 +1,7 @@
 use custom_error::custom_error;
 
 custom_error! {pub OpenAi
+    NoChoices = "no chat choices",
     InvalidStop{stop: String} = "stop value ({stop}) must be either 'left' or 'right'",
     RequestError{body: String} = "request error: {body}",
     ModelNotFound{model_name: String} = "model not found: {model_name}",

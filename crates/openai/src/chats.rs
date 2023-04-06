@@ -223,8 +223,6 @@ impl ChatsApi {
             }
         };
 
-        println!("{}", body);
-
         let body: Chat = match serde_json::from_str(&body) {
             Ok(body) => body,
             Err(e) => {
