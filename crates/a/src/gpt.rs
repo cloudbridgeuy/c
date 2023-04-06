@@ -155,7 +155,9 @@ fn make_api_request(client: &mut GPTClient) -> BoxResult<String> {
     debug!("body: {:#?}", body);
 
     info!("Making request");
-    let http = Client::builder().timeout(Duration::from_secs(90)).build()?;
+    let http = Client::builder()
+        .timeout(Duration::from_secs(300))
+        .build()?;
     let mut response_body = String::new();
     let mut response = http.post(&client.url).headers(headers).body(body).send()?;
     info!("Reading response body");
