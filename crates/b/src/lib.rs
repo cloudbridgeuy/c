@@ -9,6 +9,7 @@ pub mod chats;
 pub mod commands;
 pub mod completions;
 pub mod edits;
+pub mod utils;
 
 pub trait CommandResult {
     fn print_yaml(&self) -> Result<(), OpenAiError>

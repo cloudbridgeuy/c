@@ -1,12 +1,10 @@
-use std::time::Duration;
-
 use clap::Parser;
-use indicatif::{ProgressBar, ProgressStyle};
 
 use b::chats::ChatsCreateCommand;
 use b::commands::CommandCallers;
 use b::completions::CompletionsCreateCommand;
 use b::edits::EditsCreateCommand;
+use b::utils::create_spinner;
 use b::{Cli, CommandResult, Commands, Output};
 
 #[tokio::main]
@@ -35,13 +33,7 @@ async fn main() -> Result<(), openai::error::OpenAi> {
     };
 
     // Create a spinner
-    let spinner = ProgressBar::new_spinner();
-    spinner.enable_steady_tick(Duration::from_millis(120));
-    spinner.set_style(
-        ProgressStyle::with_template("{spinner:.magenta} {msg}")
-            .unwrap()
-            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-    );
+    let spinner = create_spinner();
 
     let result = match command.call().await {
         Ok(result) => {
