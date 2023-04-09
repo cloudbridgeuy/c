@@ -18,6 +18,7 @@ name = "b"
 path = "src/lib.rs"
 
 [dependencies]
+gpt_tokenizer = { version = "0.1.0", path = "../../lib/gpt_tokenizer" }
 clap = { version = "4.1.8", features = ["derive", "env"] }
 env_logger = "0.10.0"
 log = "0.4.17"

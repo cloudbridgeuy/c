@@ -2,42 +2,34 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use clap::{Parser, Subcommand, ValueEnum};
-use openai::error::OpenAi as OpenAiError;
 use serde::Serialize;
 
 pub mod chats;
 pub mod commands;
 pub mod completions;
 pub mod edits;
+pub mod tokenizer;
 pub mod utils;
 
 pub trait CommandResult {
-    fn print_yaml(&self) -> Result<(), OpenAiError>
+    type ResultError: Error + From<serde_json::Error> + From<serde_yaml::Error>;
+
+    fn print_yaml(&self) -> Result<(), Self::ResultError>
     where
         Self: Serialize,
     {
-        match serde_yaml::to_writer(std::io::stdout(), &self) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(OpenAiError::SerializationError {
-                body: e.to_string(),
-            }),
-        }
+        serde_yaml::to_writer(std::io::stdout(), &self).map_err(Self::ResultError::from)
     }
 
-    fn print_json(&self) -> Result<(), OpenAiError>
+    fn print_json(&self) -> Result<(), Self::ResultError>
     where
         Self: Serialize,
     {
-        match serde_json::to_writer(std::io::stdout(), &self) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(OpenAiError::SerializationError {
-                body: e.to_string(),
-            }),
-        }
+        serde_json::to_writer(std::io::stdout(), &self).map_err(Self::ResultError::from)
     }
 
     /// Returns the raw results of the command.
-    fn print_raw(&self) -> Result<(), OpenAiError>;
+    fn print_raw(&self) -> Result<(), Self::ResultError>;
 }
 
 #[async_trait]
@@ -61,6 +53,8 @@ pub struct Cli {
     pub api_key: Option<String>,
     #[clap(short, long, value_enum, default_value_t = Output::Raw)]
     pub output: Output,
+    #[clap(short, long, action, default_value_t = false)]
+    pub silent: bool,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -76,6 +70,11 @@ pub enum Output {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+    /// Tokenize
+    Tokenizer {
+        #[command(subcommand)]
+        command: TokenizerCommands,
+    },
     /// Completions API commands
     Completions {
         #[command(subcommand)]
@@ -91,6 +90,14 @@ pub enum Commands {
         #[command(subcommand)]
         command: EditsCommands,
     },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum TokenizerCommands {
+    /// Encodes a prompt
+    Encode { prompt: String },
+    /// Decodes a prompt
+    Decode { encoded: Vec<u32> },
 }
 
 #[derive(Debug, Subcommand)]

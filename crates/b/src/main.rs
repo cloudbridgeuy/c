@@ -1,47 +1,51 @@
 use clap::Parser;
 
 use b::chats::ChatsCreateCommand;
-use b::commands::CommandCallers;
+use b::commands::{CommandCallers, CommandsError};
 use b::completions::CompletionsCreateCommand;
 use b::edits::EditsCreateCommand;
-use b::utils::create_spinner;
-use b::{Cli, CommandResult, Commands, Output};
+use b::tokenizer::{TokenizerDecodeCommand, TokenizerEncodeCommand};
+use b::utils::Spinner;
+use b::{Cli, CommandResult, Commands, Output, TokenizerCommands};
 
 #[tokio::main]
-async fn main() -> Result<(), openai::error::OpenAi> {
+async fn main() -> Result<(), CommandsError> {
     env_logger::init();
 
     let cli = Cli::parse();
 
     let command = match cli.command {
-        Some(Commands::Chats { ref command }) => {
-            let caller = ChatsCreateCommand::new(&cli, &command).expect("Failed to parse command");
-            CommandCallers::ChatsCreate(caller)
-        }
-        Some(Commands::Edits { ref command }) => {
-            let caller = EditsCreateCommand::new(&cli, &command).expect("Failed to parse command");
-            CommandCallers::EditsCreate(caller)
-        }
-        Some(Commands::Completions { ref command }) => {
-            let caller =
-                CompletionsCreateCommand::new(&cli, &command).expect("Failed to parse command");
-            CommandCallers::CompletionsCreate(caller)
-        }
+        Some(Commands::Chats { ref command }) => CommandCallers::ChatsCreate(
+            ChatsCreateCommand::new(&cli, &command).expect("Failed to parse command"),
+        ),
+        Some(Commands::Edits { ref command }) => CommandCallers::EditsCreate(
+            EditsCreateCommand::new(&cli, &command).expect("Failed to parse command"),
+        ),
+        Some(Commands::Completions { ref command }) => CommandCallers::CompletionsCreate(
+            CompletionsCreateCommand::new(&cli, &command).expect("Failed to parse command"),
+        ),
+        Some(Commands::Tokenizer { ref command }) => match command {
+            TokenizerCommands::Encode { ref prompt } => CommandCallers::TokenizerEncode(
+                TokenizerEncodeCommand::new(&cli, prompt.to_string()),
+            ),
+            TokenizerCommands::Decode { ref encoded } => {
+                CommandCallers::TokenizerDecode(TokenizerDecodeCommand::new(&cli, encoded.to_vec()))
+            }
+        },
         None => {
             std::process::exit(1);
         }
     };
 
-    // Create a spinner
-    let spinner = create_spinner();
+    let spinner = Spinner::new(cli.silent);
 
     let result = match command.call().await {
         Ok(result) => {
-            spinner.finish_and_clear();
+            spinner.ok();
             result
         }
         Err(e) => {
-            spinner.abandon_with_message(e.to_string());
+            spinner.err(&e.to_string());
             std::process::exit(1);
         }
     };

@@ -58,6 +58,8 @@ impl ChatsCreateCommand {
 }
 
 impl CommandResult for Chat {
+    type ResultError = OpenAiError;
+
     fn print_raw(&self) -> Result<(), OpenAiError> {
         match self.choices.first() {
             Some(choice) => {

@@ -42,6 +42,8 @@ impl EditsCreateCommand {
 }
 
 impl CommandResult for Edit {
+    type ResultError = OpenAiError;
+
     fn print_raw(&self) -> Result<(), OpenAiError> {
         match self.choices.first() {
             Some(choice) => {

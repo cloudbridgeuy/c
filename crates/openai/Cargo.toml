@@ -15,12 +15,11 @@ path = "src/lib.rs"
 
 [dependencies]
 custom_error = "1.9.2"                                  # Define custom errors without boilerplate using the custom_error! macro.
-reqwest = { version = "0.11.16", features = ["json"] }
-serde = { version = "1.0.152", features = ["derive"] }
-serde_json = "1.0.93"
-serde_either = "0.2.1"          # Simple set to enums to deserialize and serialize data that can either be string, struct or vec
 env_logger = "0.10.0"
 log = "0.4.17"
+reqwest = { version = "0.11.16", features = ["json"] }
+serde = { version = "1.0.152", features = ["derive"] }
+serde_either = "0.2.1"          # Simple set to enums to deserialize and serialize data that can either be string, struct or vec
+serde_json = "1.0.93"
+serde_yaml = "0.9.19"                # YAML data format for Serde
 tokio = { version = "1.27.0", features = ["full"] }                   # An event-driven, non-blocking I/O platform for writing asynchronous I/O backed applications.…
-
-

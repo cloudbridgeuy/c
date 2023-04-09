@@ -79,6 +79,7 @@ dependencies = [
  "async-trait",
  "clap 4.1.8",
  "env_logger",
+ "gpt_tokenizer",
  "indicatif",
  "log",
  "openai",
@@ -1416,6 +1417,7 @@ dependencies = [
  "serde",
  "serde_either",
  "serde_json",
+ "serde_yaml 0.9.19",
  "tokio",
 ]
 

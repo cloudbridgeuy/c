@@ -63,6 +63,8 @@ impl CompletionsCreateCommand {
 }
 
 impl CommandResult for Completions {
+    type ResultError = OpenAiError;
+
     fn print_raw(&self) -> Result<(), OpenAiError> {
         match self.choices.first() {
             Some(choice) => {
