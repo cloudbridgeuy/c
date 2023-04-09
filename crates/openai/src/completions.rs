@@ -73,30 +73,23 @@ const DEFAULT_MODEL: &str = "text-davinci-003";
 
 impl CompletionsApi {
     /// Creates a new CompletionsApi.
-    pub fn new(api_key: String) -> Self {
-        let client = Client::new(api_key).expect("Failed to create client");
+    pub fn new(api_key: String) -> Result<Self, error::OpenAi> {
+        let client = match Client::new(api_key) {
+            Ok(client) => client,
+            Err(err) => {
+                return Err(error::OpenAi::ClientError {
+                    body: err.to_string(),
+                });
+            }
+        };
 
         log::debug!("Created OpenAi HTTP Client");
 
-        CompletionsApi {
+        Ok(Self {
             client,
             model: String::from(DEFAULT_MODEL),
-            prompt: None,
-            suffix: None,
-            max_tokens: None,
-            temperature: None,
-            top_p: None,
-            n: None,
-            stream: None,
-            logprobs: None,
-            echo: None,
-            stop: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            best_of: None,
-            logit_bias: None,
-            user: None,
-        }
+            ..Default::default()
+        })
     }
 
     /// Gets the value of the echo.

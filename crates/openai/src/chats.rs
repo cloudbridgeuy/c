@@ -84,16 +84,7 @@ impl ChatsApi {
             client,
             model: String::from(DEFAULT_MODEL),
             messages: Vec::new(),
-            max_tokens: None,
-            temperature: None,
-            top_p: None,
-            n: None,
-            stream: None,
-            stop: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            user: None,
+            ..Default::default()
         })
     }
 

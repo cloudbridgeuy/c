@@ -4,6 +4,7 @@ use log;
 use b::chats::ChatsCreateCommand;
 use b::commands::CommandCallers;
 use b::completions::CompletionsCreateCommand;
+use b::edits::EditsCreateCommand;
 use b::{Cli, CommandResult, Commands, Output};
 
 fn main() -> Result<(), openai::error::OpenAi> {
@@ -15,6 +16,10 @@ fn main() -> Result<(), openai::error::OpenAi> {
         Some(Commands::Chats { ref command }) => {
             let caller = ChatsCreateCommand::new(&cli, &command).expect("Failed to parse command");
             CommandCallers::ChatsCreate(caller)
+        }
+        Some(Commands::Edits { ref command }) => {
+            let caller = EditsCreateCommand::new(&cli, &command).expect("Failed to parse command");
+            CommandCallers::EditsCreate(caller)
         }
         Some(Commands::Completions { ref command }) => {
             let caller =

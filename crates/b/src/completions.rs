@@ -36,7 +36,7 @@ impl CompletionsCreateCommand {
                     .as_ref()
                     .expect("No API key provided")
                     .to_string();
-                let mut api = CompletionsApi::new(api_key);
+                let mut api = CompletionsApi::new(api_key)?;
                 api.prompt = Some(SingleOrVec::Vec(prompt.clone()));
                 api.model = model.to_string();
                 api.max_tokens = *max_tokens;

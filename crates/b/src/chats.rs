@@ -43,21 +43,12 @@ impl ChatsCreateCommand {
                 api.user = user.to_owned();
                 api.stream = stream.to_owned();
 
-                if let Some(stop) = stop {
-                    api.set_stop(SingleOrVec::Vec(stop.to_owned()))?;
-                }
-                if let Some(temperature) = temperature {
-                    api.set_temperature(*temperature)?;
-                }
-                if let Some(top_p) = top_p {
-                    api.set_top_p(*top_p)?;
-                }
-                if let Some(presence_penalty) = presence_penalty {
-                    api.set_presence_penalty(*presence_penalty)?;
-                }
-                if let Some(frequency_penalty) = frequency_penalty {
-                    api.set_frequency_penalty(*frequency_penalty)?;
-                }
+                stop.as_ref()
+                    .map(|s| api.set_stop(SingleOrVec::Vec(s.to_vec())));
+                temperature.map(|s| api.set_temperature(s));
+                top_p.map(|s| api.set_top_p(s));
+                presence_penalty.map(|s| api.set_presence_penalty(s));
+                frequency_penalty.map(|s| api.set_frequency_penalty(s));
 
                 Ok(Self { api })
             }

@@ -7,6 +7,7 @@ use serde::Serialize;
 pub mod chats;
 pub mod commands;
 pub mod completions;
+pub mod edits;
 
 pub trait CommandResult {
     fn print_yaml(&self) -> Result<(), OpenAiError>
@@ -77,10 +78,15 @@ pub enum Commands {
         #[command(subcommand)]
         command: CompletionsCommands,
     },
-    /// Chat API commands
+    /// Chats API commands
     Chats {
         #[command(subcommand)]
         command: ChatsCommands,
+    },
+    /// Edits API commands
+    Edits {
+        #[command(subcommand)]
+        command: EditsCommands,
     },
 }
 
@@ -138,6 +144,37 @@ pub enum ChatsCommands {
         /// detect abuse.
         #[arg(long)]
         user: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum EditsCommands {
+    /// Create a new chat session
+    Create {
+        /// ID of the model to use. Use the `modesl list` command to see all your available models
+        /// or see the following link: https://platform.openai.com/docs/models/overview
+        #[arg(long, default_value = "code-davinci-edit-001")]
+        model: String,
+        /// The input text to use as a starting point.
+        #[arg(long)]
+        input: Option<String>,
+        /// The instruction that tells the model how to edit the prompt.
+        #[arg(long)]
+        instruction: String,
+        /// What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the
+        /// output more random, while lower valies like 0.2 will make it more focused and
+        /// deterministic. It's generally recommended to alter this or `top_p` but not both.
+        #[arg(long)]
+        temperature: Option<f32>,
+        /// An alternative sampling with temperature, called nucleus sampling, where the model
+        /// considers the results of the tokens with `top_p` probability mass. So, 0.1 means only
+        /// the tokens comprising the top 10% probability mass are considered. It's generally
+        /// recommended to alter this or `temperature` but not both.
+        #[arg(long)]
+        top_p: Option<f32>,
+        /// How many completions to generate for each prompt.
+        #[arg(long)]
+        n: Option<u32>,
     },
 }
 
