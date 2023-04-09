@@ -23,17 +23,17 @@ pub enum CommandResults {
 }
 
 impl CommandCallers {
-    pub fn call(self) -> Result<CommandResults, OpenAiError> {
+    pub async fn call(self) -> Result<CommandResults, OpenAiError> {
         match self {
-            CommandCallers::CompletionsCreate(command) => match command.call() {
+            CommandCallers::CompletionsCreate(command) => match command.call().await {
                 Ok(result) => Ok(CommandResults::CompletionsCreate(result)),
                 Err(err) => Err(err),
             },
-            CommandCallers::ChatsCreate(command) => match command.call() {
+            CommandCallers::ChatsCreate(command) => match command.call().await {
                 Ok(result) => Ok(CommandResults::ChatsCreate(result)),
                 Err(err) => Err(err),
             },
-            CommandCallers::EditsCreate(command) => match command.call() {
+            CommandCallers::EditsCreate(command) => match command.call().await {
                 Ok(result) => Ok(CommandResults::EditsCreate(result)),
                 Err(err) => Err(err),
             },

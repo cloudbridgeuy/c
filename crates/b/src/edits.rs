@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use async_trait::async_trait;
 use openai::edits::{Edit, EditsApi};
 use openai::error::OpenAi as OpenAiError;
 
@@ -52,10 +53,11 @@ impl CommandResult for Edit {
     }
 }
 
+#[async_trait]
 impl CommandHandle<Edit> for EditsCreateCommand {
     type CallError = OpenAiError;
 
-    fn call(&self) -> Result<Edit, OpenAiError> {
-        self.api.create()
+    async fn call(&self) -> Result<Edit, OpenAiError> {
+        self.api.create().await
     }
 }

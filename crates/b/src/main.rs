@@ -1,5 +1,7 @@
+use std::time::Duration;
+
 use clap::Parser;
-use log;
+use indicatif::{ProgressBar, ProgressStyle};
 
 use b::chats::ChatsCreateCommand;
 use b::commands::CommandCallers;
@@ -7,7 +9,8 @@ use b::completions::CompletionsCreateCommand;
 use b::edits::EditsCreateCommand;
 use b::{Cli, CommandResult, Commands, Output};
 
-fn main() -> Result<(), openai::error::OpenAi> {
+#[tokio::main]
+async fn main() -> Result<(), openai::error::OpenAi> {
     env_logger::init();
 
     let cli = Cli::parse();
@@ -31,10 +34,22 @@ fn main() -> Result<(), openai::error::OpenAi> {
         }
     };
 
-    let result = match command.call() {
-        Ok(result) => result,
+    // Create a spinner
+    let spinner = ProgressBar::new_spinner();
+    spinner.enable_steady_tick(Duration::from_millis(120));
+    spinner.set_style(
+        ProgressStyle::with_template("{spinner:.magenta} {msg}")
+            .unwrap()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
+    );
+
+    let result = match command.call().await {
+        Ok(result) => {
+            spinner.finish_and_clear();
+            result
+        }
         Err(e) => {
-            log::error!("{:#?}", e);
+            spinner.abandon_with_message(e.to_string());
             std::process::exit(1);
         }
     };

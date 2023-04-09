@@ -57,9 +57,9 @@ impl ModelsApi {
         client
     }
 
-    pub fn list(&self) -> Result<Vec<Model>, error::OpenAi> {
-        let body = match self.client.get("/models") {
-            Ok(response) => match response.text() {
+    pub async fn list(&self) -> Result<Vec<Model>, error::OpenAi> {
+        let body = match self.client.get("/models").await {
+            Ok(response) => match response.text().await {
                 Ok(text) => text,
                 Err(e) => {
                     return Err(error::OpenAi::RequestError {

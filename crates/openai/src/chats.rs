@@ -188,7 +188,7 @@ impl ChatsApi {
     }
 
     /// Creates a completion for the chat message
-    pub fn create(&self) -> Result<Chat, error::OpenAi> {
+    pub async fn create(&self) -> Result<Chat, error::OpenAi> {
         let request = match serde_json::to_string(&self) {
             Ok(request) => request,
             Err(err) => {
@@ -198,8 +198,8 @@ impl ChatsApi {
             }
         };
 
-        let body = match self.client.post("/chat/completions", request) {
-            Ok(response) => match response.text() {
+        let body = match self.client.post("/chat/completions", request).await {
+            Ok(response) => match response.text().await {
                 Ok(text) => text,
                 Err(e) => {
                     return Err(error::OpenAi::RequestError {

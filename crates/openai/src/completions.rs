@@ -285,7 +285,7 @@ impl CompletionsApi {
     }
 
     /// Creates a completion for the provided parameters.
-    pub fn create(&self) -> Result<Completions, error::OpenAi> {
+    pub async fn create(&self) -> Result<Completions, error::OpenAi> {
         let request = match serde_json::to_string(&self) {
             Ok(request) => request,
             Err(err) => {
@@ -295,8 +295,8 @@ impl CompletionsApi {
             }
         };
 
-        let body = match self.client.post("/completions", request) {
-            Ok(response) => match response.text() {
+        let body = match self.client.post("/completions", request).await {
+            Ok(response) => match response.text().await {
                 Ok(text) => text,
                 Err(e) => {
                     return Err(error::OpenAi::RequestError {

@@ -1,10 +1,8 @@
 use std::time::Duration;
 
 use log;
-use reqwest::{
-    blocking::{Client as ReqwestClient, Response as ReqwestResponse},
-    header::{HeaderMap, HeaderValue},
-};
+use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::{Client as ReqwestClient, Response as ReqwestResponse};
 
 use crate::error;
 
@@ -102,7 +100,7 @@ impl Client {
     }
 
     /// Makes a GET request to the OpenAi API.
-    pub fn get(&self, endpoint: &str) -> Result<ReqwestResponse, error::OpenAi> {
+    pub async fn get(&self, endpoint: &str) -> Result<ReqwestResponse, error::OpenAi> {
         let mut url = self.base_url.clone();
         url.push_str(endpoint);
 
@@ -110,7 +108,7 @@ impl Client {
 
         let request = self.reqwest.get(url).headers(self.headers.clone());
 
-        match request.send() {
+        match request.send().await {
             Ok(x) => Ok(x),
             Err(e) => {
                 log::error!("Error: {}", e);
@@ -122,7 +120,11 @@ impl Client {
     }
 
     /// Makes a POST request to the OpenAi API.
-    pub fn post(&self, endpoint: &str, body: String) -> Result<ReqwestResponse, error::OpenAi> {
+    pub async fn post(
+        &self,
+        endpoint: &str,
+        body: String,
+    ) -> Result<ReqwestResponse, error::OpenAi> {
         let mut url = self.base_url.clone();
         url.push_str(endpoint);
 
@@ -134,6 +136,7 @@ impl Client {
             .headers(self.headers.clone())
             .body(body)
             .send()
+            .await
         {
             Ok(x) => Ok(x),
             Err(e) => Err(error::OpenAi::RequestError {

@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use async_trait::async_trait;
 use clap::{Parser, Subcommand, ValueEnum};
 use openai::error::OpenAi as OpenAiError;
 use serde::Serialize;
@@ -38,11 +39,12 @@ pub trait CommandResult {
     fn print_raw(&self) -> Result<(), OpenAiError>;
 }
 
+#[async_trait]
 pub trait CommandHandle<R: CommandResult> {
     type CallError: Error;
 
     /// Runs the command handler
-    fn call(&self) -> Result<R, Self::CallError>;
+    async fn call(&self) -> Result<R, Self::CallError>;
 }
 
 #[derive(Debug, Parser)]

@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use async_trait::async_trait;
 use serde_either::SingleOrVec;
 
 use openai::chats::{Chat, ChatMessage, ChatsApi};
@@ -68,10 +69,11 @@ impl CommandResult for Chat {
     }
 }
 
+#[async_trait]
 impl CommandHandle<Chat> for ChatsCreateCommand {
     type CallError = OpenAiError;
 
-    fn call(&self) -> Result<Chat, OpenAiError> {
-        self.api.create()
+    async fn call(&self) -> Result<Chat, OpenAiError> {
+        self.api.create().await
     }
 }

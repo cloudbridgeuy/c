@@ -98,7 +98,7 @@ impl EditsApi {
     }
 
     /// Creates an edit from the provided parameters.
-    pub fn create(&self) -> Result<Edit, error::OpenAi> {
+    pub async fn create(&self) -> Result<Edit, error::OpenAi> {
         let request = match serde_json::to_string(&self) {
             Ok(request) => request,
             Err(err) => {
@@ -108,8 +108,8 @@ impl EditsApi {
             }
         };
 
-        let body = match self.client.post("/edits", request) {
-            Ok(response) => match response.text() {
+        let body = match self.client.post("/edits", request).await {
+            Ok(response) => match response.text().await {
                 Ok(text) => text,
                 Err(e) => {
                     return Err(error::OpenAi::RequestError {

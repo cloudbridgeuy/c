@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use async_trait::async_trait;
 use serde_either::SingleOrVec;
 
 use openai::completions::{Completions, CompletionsApi};
@@ -73,10 +74,11 @@ impl CommandResult for Completions {
     }
 }
 
+#[async_trait]
 impl CommandHandle<Completions> for CompletionsCreateCommand {
     type CallError = OpenAiError;
 
-    fn call(&self) -> Result<Completions, OpenAiError> {
-        self.api.create()
+    async fn call(&self) -> Result<Completions, OpenAiError> {
+        self.api.create().await
     }
 }
