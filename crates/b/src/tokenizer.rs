@@ -26,10 +26,9 @@ impl TokenizerEncodeCommand {
 impl CommandResult for TokenizerEncodeResult {
     type ResultError = CommandError;
 
-    fn print_raw(&self) -> Result<(), Self::ResultError> {
-        // Implement the print_raw function for TokenizerEncodeResult
+    fn print_raw<W: std::io::Write>(&self, mut w: W) -> Result<(), Self::ResultError> {
         for value in &self.value {
-            print!("{} ", value);
+            write!(w, "{} ", value)?;
         }
         Ok(())
     }
@@ -67,8 +66,8 @@ impl TokenizerDecodeCommand {
 impl CommandResult for TokenizerDecodeResult {
     type ResultError = CommandError;
 
-    fn print_raw(&self) -> Result<(), Self::ResultError> {
-        print!("{}", self.value);
+    fn print_raw<W: std::io::Write>(&self, mut w: W) -> Result<(), Self::ResultError> {
+        write!(w, "{}", self.value)?;
         Ok(())
     }
 }

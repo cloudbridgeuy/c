@@ -52,13 +52,13 @@ async fn main() -> Result<(), CommandError> {
 
     match cli.output {
         Output::Json => {
-            result.print_json()?;
+            result.print_json(std::io::stdout())?;
         }
         Output::Yaml => {
-            result.print_yaml()?;
+            result.print_yaml(std::io::stdout())?;
         }
         Output::Raw => {
-            result.print_raw()?;
+            result.print_raw(std::io::stdout())?;
         }
     }
 

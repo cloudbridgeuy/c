@@ -58,33 +58,33 @@ impl CommandCallers {
 impl CommandResult for CommandResults {
     type ResultError = CommandError;
 
-    fn print_json(&self) -> Result<(), Self::ResultError> {
+    fn print_json<W: std::io::Write>(&self, w: W) -> Result<(), Self::ResultError> {
         match self {
-            CommandResults::TokenizerEncode(result) => result.print_json(),
-            CommandResults::TokenizerDecode(result) => result.print_json(),
-            CommandResults::ChatsCreate(result) => result.print_json(),
-            CommandResults::EditsCreate(result) => result.print_json(),
-            CommandResults::CompletionsCreate(result) => result.print_json(),
+            CommandResults::TokenizerEncode(result) => result.print_json(w),
+            CommandResults::TokenizerDecode(result) => result.print_json(w),
+            CommandResults::ChatsCreate(result) => result.print_json(w),
+            CommandResults::EditsCreate(result) => result.print_json(w),
+            CommandResults::CompletionsCreate(result) => result.print_json(w),
         }
     }
 
-    fn print_yaml(&self) -> Result<(), Self::ResultError> {
+    fn print_yaml<W: std::io::Write>(&self, w: W) -> Result<(), Self::ResultError> {
         match self {
-            CommandResults::TokenizerEncode(result) => result.print_yaml(),
-            CommandResults::TokenizerDecode(result) => result.print_yaml(),
-            CommandResults::ChatsCreate(result) => result.print_yaml(),
-            CommandResults::EditsCreate(result) => result.print_yaml(),
-            CommandResults::CompletionsCreate(result) => result.print_yaml(),
+            CommandResults::TokenizerEncode(result) => result.print_yaml(w),
+            CommandResults::TokenizerDecode(result) => result.print_yaml(w),
+            CommandResults::ChatsCreate(result) => result.print_yaml(w),
+            CommandResults::EditsCreate(result) => result.print_yaml(w),
+            CommandResults::CompletionsCreate(result) => result.print_yaml(w),
         }
     }
 
-    fn print_raw(&self) -> Result<(), Self::ResultError> {
+    fn print_raw<W: std::io::Write>(&self, w: W) -> Result<(), Self::ResultError> {
         match self {
-            CommandResults::TokenizerEncode(result) => result.print_raw(),
-            CommandResults::TokenizerDecode(result) => result.print_raw(),
-            CommandResults::ChatsCreate(result) => result.print_raw(),
-            CommandResults::EditsCreate(result) => result.print_raw(),
-            CommandResults::CompletionsCreate(result) => result.print_raw(),
+            CommandResults::TokenizerEncode(result) => result.print_raw(w),
+            CommandResults::TokenizerDecode(result) => result.print_raw(w),
+            CommandResults::ChatsCreate(result) => result.print_raw(w),
+            CommandResults::EditsCreate(result) => result.print_raw(w),
+            CommandResults::CompletionsCreate(result) => result.print_raw(w),
         }
     }
 }

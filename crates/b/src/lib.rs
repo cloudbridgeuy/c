@@ -23,6 +23,9 @@ pub enum CommandError {
 
     /// Tokenizer Error
     Tokenizer { body: String },
+
+    /// Io Error
+    IoError { source: std::io::Error },
 }
 
 impl std::fmt::Display for CommandError {
@@ -57,25 +60,34 @@ impl From<serde_yaml::Error> for CommandError {
     }
 }
 
-pub trait CommandResult {
-    type ResultError: Error + From<serde_json::Error> + From<serde_yaml::Error>;
+impl From<std::io::Error> for CommandError {
+    fn from(e: std::io::Error) -> Self {
+        Self::IoError { source: e }
+    }
+}
 
-    fn print_yaml(&self) -> Result<(), Self::ResultError>
+pub trait CommandResult {
+    type ResultError: Error
+        + From<serde_json::Error>
+        + From<serde_yaml::Error>
+        + From<std::io::Error>;
+
+    fn print_yaml<W: std::io::Write>(&self, writer: W) -> Result<(), Self::ResultError>
     where
         Self: Serialize,
     {
-        serde_yaml::to_writer(std::io::stdout(), &self).map_err(Self::ResultError::from)
+        serde_yaml::to_writer(writer, &self).map_err(Self::ResultError::from)
     }
 
-    fn print_json(&self) -> Result<(), Self::ResultError>
+    fn print_json<W: std::io::Write>(&self, writer: W) -> Result<(), Self::ResultError>
     where
         Self: Serialize,
     {
-        serde_json::to_writer(std::io::stdout(), &self).map_err(Self::ResultError::from)
+        serde_json::to_writer(writer, &self).map_err(Self::ResultError::from)
     }
 
     /// Returns the raw results of the command.
-    fn print_raw(&self) -> Result<(), Self::ResultError>;
+    fn print_raw<W: std::io::Write>(&self, writer: W) -> Result<(), Self::ResultError>;
 }
 
 #[async_trait]

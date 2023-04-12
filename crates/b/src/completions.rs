@@ -65,10 +65,10 @@ impl CompletionsCreateCommand {
 impl CommandResult for Completions {
     type ResultError = CommandError;
 
-    fn print_raw(&self) -> Result<(), Self::ResultError> {
+    fn print_raw<W: std::io::Write>(&self, mut w: W) -> Result<(), Self::ResultError> {
         match self.choices.first() {
             Some(choice) => {
-                println!("{}", choice.text);
+                write!(w, "{}", choice.text)?;
                 Ok(())
             }
             None => Err(CommandError::from(OpenAiError::NoChoices)),
