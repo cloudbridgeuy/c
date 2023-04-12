@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::io::Read;
 
 use async_trait::async_trait;
 use serde_either::SingleOrVec;
@@ -34,10 +35,29 @@ impl ChatsCreateCommand {
                     .expect("No API Key provided")
                     .to_string();
                 let mut api = ChatsApi::new(api_key)?;
+
                 api.messages = vec![ChatMessage {
                     content: prompt.to_owned().join(" "),
                     role: "user".to_owned(),
                 }];
+
+                let mut stdin = Vec::new();
+                // Read from stdin if it's not a tty and don't forget to unlock `stdin`
+                {
+                    let mut stdin_lock = std::io::stdin().lock();
+                    stdin_lock.read_to_end(&mut stdin)?;
+                }
+
+                if !stdin.is_empty() {
+                    api.messages.insert(
+                        0,
+                        ChatMessage {
+                            content: String::from_utf8_lossy(&stdin).to_string(),
+                            role: "user".to_owned(),
+                        },
+                    );
+                }
+
                 api.model = model.to_owned();
                 api.max_tokens = max_tokens.to_owned();
                 api.n = *n;

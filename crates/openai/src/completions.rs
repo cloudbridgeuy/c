@@ -143,6 +143,14 @@ impl CompletionsApi {
         if let Some(_) = &self.echo {
             return Err(error::OpenAi::InvalidSuffix);
         }
+
+        // Can't run 'suffix' with multiple prompts
+        if let Some(SingleOrVec::Vec(prompts)) = &self.prompt {
+            if prompts.len() > 1 {
+                return Err(error::OpenAi::InvalidSuffix);
+            }
+        }
+
         self.suffix = Some(suffix);
 
         log::debug!("Set suffix to {:?}", &self.suffix);
@@ -310,6 +318,8 @@ impl CompletionsApi {
                 })
             }
         };
+
+        log::debug!("Response body: {}", body);
 
         let body: Completions = match serde_json::from_str(&body) {
             Ok(body) => body,

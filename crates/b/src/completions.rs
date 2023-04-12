@@ -1,4 +1,7 @@
 use std::error::Error;
+use std::fmt::Write;
+use std::io::Read;
+use std::string::String;
 
 use async_trait::async_trait;
 use serde_either::SingleOrVec;
@@ -38,7 +41,35 @@ impl CompletionsCreateCommand {
                     .expect("No API key provided")
                     .to_string();
                 let mut api = CompletionsApi::new(api_key)?;
-                api.prompt = Some(SingleOrVec::Vec(prompt.clone()));
+
+                let mut stdin = Vec::new();
+                // Read from stdin if it's not a tty and don't forget to unlock `stdin`
+                {
+                    let mut stdin_lock = std::io::stdin().lock();
+                    stdin_lock.read_to_end(&mut stdin)?;
+                }
+
+                if !stdin.is_empty() {
+                    if prompt.len() == 0 {
+                        api.prompt = Some(SingleOrVec::Single(
+                            String::from_utf8_lossy(&stdin).to_string(),
+                        ));
+                    } else {
+                        let mut first = String::new();
+                        write!(
+                            first,
+                            "{}\n{}",
+                            String::from_utf8_lossy(&stdin).to_string(),
+                            prompt.first().unwrap().clone(),
+                        )?;
+                        let mut clone = prompt.clone().iter().skip(1).cloned().collect::<Vec<_>>();
+                        clone.insert(0, first);
+                        api.prompt = Some(SingleOrVec::Vec(clone));
+                    }
+                } else {
+                    api.prompt = Some(SingleOrVec::Vec(prompt.clone()));
+                }
+
                 api.model = model.to_string();
                 api.max_tokens = *max_tokens;
                 api.n = *n;
