@@ -100,10 +100,8 @@ impl CompletionsApi {
     /// Sets the value of the echo.
     pub fn set_echo(&mut self, echo: bool) -> Result<&mut Self, error::OpenAi> {
         // Can't run 'echo' with 'suffix'
-        if let Some(_) = &self.suffix {
-            if echo {
-                return Err(error::OpenAi::InvalidEcho);
-            }
+        if self.suffix.is_some() && echo {
+            return Err(error::OpenAi::InvalidEcho);
         }
         self.echo = Some(echo);
 
@@ -120,10 +118,8 @@ impl CompletionsApi {
     /// Sets the value of the stream.
     pub fn set_stream(&mut self, stream: bool) -> Result<&mut Self, error::OpenAi> {
         // Can't run 'stream' with 'suffix'
-        if let Some(_) = &self.best_of {
-            if stream {
-                return Err(error::OpenAi::InvalidStream);
-            }
+        if self.best_of.is_some() && stream {
+            return Err(error::OpenAi::InvalidStream);
         }
         self.stream = Some(stream);
 
@@ -140,7 +136,7 @@ impl CompletionsApi {
     /// Sets the value of the suffix.
     pub fn set_suffix(&mut self, suffix: String) -> Result<&mut Self, error::OpenAi> {
         // Can't run 'suffix' with 'suffix'
-        if let Some(_) = &self.echo {
+        if self.echo.is_some() {
             return Err(error::OpenAi::InvalidSuffix);
         }
 
@@ -166,7 +162,7 @@ impl CompletionsApi {
     /// Sets the value of the best_of.
     pub fn set_best_of(&mut self, best_of: u32) -> Result<&mut Self, error::OpenAi> {
         // Can't run 'best_of' with 'best_of'
-        if let Some(_) = &self.stream {
+        if self.stream.is_some() {
             return Err(error::OpenAi::InvalidBestOf);
         }
         self.best_of = Some(best_of);

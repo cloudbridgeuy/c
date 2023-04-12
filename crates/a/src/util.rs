@@ -10,9 +10,9 @@ use std::io::Read;
 
 const THEME: &str = "ansi";
 
-fn lang_exists(lang: &String, langs: &Vec<Syntax>) -> bool {
+fn lang_exists(lang: &str, langs: &Vec<Syntax>) -> bool {
     for l in langs {
-        if &l.name.to_lowercase() == &lang.to_lowercase() {
+        if l.name.to_lowercase() == lang.to_lowercase() {
             return true;
         }
         for e in &l.file_extensions {
@@ -24,26 +24,25 @@ fn lang_exists(lang: &String, langs: &Vec<Syntax>) -> bool {
     false
 }
 
-pub fn pretty_print(str: &String, lang: &String) {
-    let mut lang = lang.clone();
+pub fn pretty_print(str: &str, mut lang: &str) {
     let mut pp = PrettyPrinter::new();
 
     let langs: Vec<_> = pp.syntaxes().collect();
-    if !lang_exists(&lang, &langs) {
-        lang = String::from("txt");
+    if !lang_exists(lang, &langs) {
+        lang = "txt"
     }
 
     pp.input_from_bytes(str.as_bytes())
-        .language(&lang)
+        .language(lang)
         .use_italics(true)
         .theme(THEME)
         .print()
         .unwrap();
 }
 
-pub fn copy_to_clipboard(str: &String) {
+pub fn copy_to_clipboard(str: &str) {
     let mut ctx = ClipboardContext::new().unwrap();
-    ctx.set_contents(str.clone()).unwrap();
+    ctx.set_contents(str.to_string()).unwrap();
 }
 
 pub fn write_to_file(file_path: &str, content: &str) -> std::io::Result<()> {

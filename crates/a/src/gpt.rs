@@ -257,7 +257,7 @@ impl GPTClient {
         info!("Creating system message prompt");
         self.prompt.messages.push(ChatMessage {
             role: String::from("system"),
-            content: String::from(format!(
+            content: format!(
                 r"#
 Act as a natural language to code translation engine.
 
@@ -276,7 +276,7 @@ There are no exceptions to these rules.
 You must always follow them. NO EXCEPTIONS.
 Current date {}#",
                 get_current_date()
-            )),
+            ),
         });
         // content: String::from(format!("Enter a programming question about any language, prioritizing Rust, Bash, JavaScript, TypeScript, or Go. Begin your input with the programming language. The response will consist of code in the specified language, with all additional information formatted as a comment for the requested programming language. The code should always come before any other text. When applicable, alternative solutions or additional code snippets may be provided. Current date {}", get_current_date()))});
         debug!("system message: {:#?}", self.prompt.messages[0]);
@@ -313,6 +313,6 @@ Current date {}#",
         });
         self.serialize_and_store()?;
 
-        return Ok(String::from(content));
+        Ok(content)
     }
 }

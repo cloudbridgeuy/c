@@ -170,6 +170,10 @@ pub enum ChatsCommands {
         /// from stdin. If you pass a value here and pipe data from stdin, both will be sent to the
         /// API, stdin taking precedence.
         prompt: Option<String>,
+        /// The system prompt to use for the chat. It's always sent as the first message of any
+        /// chat request.
+        // #[arg(long)]
+        // system: Option<String>,
         /// The maximum number of tokens to generate in the completion.
         #[arg(long)]
         max_tokens: Option<u32>,

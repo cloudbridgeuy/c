@@ -16,13 +16,13 @@ async fn main() -> Result<(), CommandError> {
 
     let command = match cli.command {
         Some(Commands::Chats { ref command }) => CommandCallers::ChatsCreate(
-            ChatsCreateCommand::new(&cli, &command).expect("Failed to parse command"),
+            ChatsCreateCommand::new(&cli, command).expect("Failed to parse command"),
         ),
         Some(Commands::Edits { ref command }) => CommandCallers::EditsCreate(
-            EditsCreateCommand::new(&cli, &command).expect("Failed to parse command"),
+            EditsCreateCommand::new(&cli, command).expect("Failed to parse command"),
         ),
         Some(Commands::Completions { ref command }) => CommandCallers::CompletionsCreate(
-            CompletionsCreateCommand::new(&cli, &command).expect("Failed to parse command"),
+            CompletionsCreateCommand::new(&cli, command).expect("Failed to parse command"),
         ),
         Some(Commands::Tokenizer { ref command }) => match command {
             TokenizerCommands::Encode { ref prompt } => CommandCallers::TokenizerEncode(

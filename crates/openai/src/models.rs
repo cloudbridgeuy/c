@@ -48,9 +48,7 @@ pub struct ModelsRequestBody {
 
 impl ModelsApi {
     pub fn new(client: Client) -> Self {
-        let client = Self {
-            client: client.clone(),
-        };
+        let client = Self { client };
 
         log::debug!("Created ModelsApi");
 

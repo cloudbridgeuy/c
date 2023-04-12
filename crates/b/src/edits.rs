@@ -31,7 +31,10 @@ impl EditsCreateCommand {
                 api.instruction = instruction.to_owned();
                 api.n = *n;
 
-                input.as_ref().map(|s| api.input = s.to_owned());
+                if let Some(input) = input.as_ref() {
+                    api.input = input.to_owned();
+                }
+
                 temperature.map(|s| api.set_temperature(s));
                 top_p.map(|s| api.set_top_p(s));
 

@@ -11,6 +11,7 @@ pub const VOCAB_BPE: &str = include_str!("vocab.bpe");
 
 /// Default tokenizer that uses embedded encoder and vocab values to create the `encode` and
 /// `decode` functions.
+#[derive(Default)]
 pub struct Default {
     encoder: HashMap<String, u32>,
     decoder: HashMap<u32, String>,
@@ -27,18 +28,18 @@ impl Default {
 
         Self {
             encoder: encoder.clone(),
-            decoder: HashMap::from_iter(encoder.clone().into_iter().map(|(k, v)| (v, k))),
+            decoder: HashMap::from_iter(encoder.into_iter().map(|(k, v)| (v, k))),
             bpe_ranks: bpe_ranks(&lines),
-            byte_decoder: HashMap::from_iter(byte_encoder.clone().into_iter().map(|(k, v)| (v, k))),
+            byte_decoder: HashMap::from_iter(byte_encoder.into_iter().map(|(k, v)| (v, k))),
         }
     }
 
     pub fn encode(&self, text: &str) -> Vec<u32> {
-        encode(&text, &self.bpe_ranks, &self.encoder)
+        encode(text, &self.bpe_ranks, &self.encoder)
     }
 
     pub fn decode(&self, encoded: &[u32]) -> String {
-        decode(&encoded, &self.decoder, &self.byte_decoder)
+        decode(encoded, &self.decoder, &self.byte_decoder)
     }
 }
 
@@ -65,9 +66,9 @@ pub fn bytes_to_unicode() -> HashMap<u32, char> {
     let mut n = 0;
     for b in 0..(2_u32.pow(8)) {
         if !bs.contains(&b) {
-           bs.push(b);
-           cs.push(2_u32.pow(8) + n);
-           n += 1;
+            bs.push(b);
+            cs.push(2_u32.pow(8) + n);
+            n += 1;
         }
     }
 
@@ -77,7 +78,11 @@ pub fn bytes_to_unicode() -> HashMap<u32, char> {
 }
 
 /// Encodes a string using a custom bpe_ranks and encoder HashMaps.
-pub fn encode(text: &str, bpe_ranks: &HashMap<Vec<String>, usize>, encoder: &HashMap<String, u32>) -> Vec<u32> {
+pub fn encode(
+    text: &str,
+    bpe_ranks: &HashMap<Vec<String>, usize>,
+    encoder: &HashMap<String, u32>,
+) -> Vec<u32> {
     // I had to update this regex to makr it work in Rust, given that Rust doesn't support
     // look-around assertions.
     //
@@ -86,27 +91,41 @@ pub fn encode(text: &str, bpe_ranks: &HashMap<Vec<String>, usize>, encoder: &Has
     // - `?\p{N}+: This part matches Unicode numbers (N) with an optional space (?) before them. The plus sign (+) indicates one or more occurrences of the preceding element.
     // - `?[^\s\p{L}\p{N}]+: This part matches any character that is not a whitespace (\s), letter (\p{L}), or number (\p{N}) with an optional space (?) before them. The plus sign (+) indicates one or more occurrences of the preceding element.
     // - `\s+: This part matches one or more whitespace characters (\s+).
-    let pat = Regex::new(r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+$|\s+").unwrap();
+    let pat = Regex::new(r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+$|\s+")
+        .unwrap();
     let mut bpe_tokens = Vec::new();
 
     for token in pat.find_iter(text) {
         let token = token.as_str();
         let token = encode_str(token);
-        let token = token.into_iter().map(|x| chr(x.parse::<u32>().unwrap()).to_string()).collect::<Vec<_>>().join("");
+        let token = token
+            .into_iter()
+            .map(|x| chr(x.parse::<u32>().unwrap()).to_string())
+            .collect::<Vec<_>>()
+            .join("");
 
-        let new_tokens: Vec<u32> = bpe(&token, bpe_ranks).split_whitespace().map(|x| encoder[x]).collect();
+        let new_tokens: Vec<u32> = bpe(&token, bpe_ranks)
+            .split_whitespace()
+            .map(|x| encoder[x])
+            .collect();
         bpe_tokens.extend(new_tokens);
     }
 
     bpe_tokens
 }
 
-
 /// Decodes an encoded string using a custom decoder and byte decoder created from the encoder that
 /// encoded the original string.
-pub fn decode(tokens: &[u32], decoder: &HashMap<u32, String>, byte_decoder: &HashMap<char, u32>) -> String {
+pub fn decode(
+    tokens: &[u32],
+    decoder: &HashMap<u32, String>,
+    byte_decoder: &HashMap<char, u32>,
+) -> String {
     let text: String = tokens.iter().map(|x| decoder[x].as_str()).collect();
-    let text: String = text.chars().map(|x| chr(*byte_decoder.get(&x).unwrap())).collect();
+    let text: String = text
+        .chars()
+        .map(|x| chr(*byte_decoder.get(&x).unwrap()))
+        .collect();
 
     text
 }
@@ -130,7 +149,7 @@ fn encode_str(s: &str) -> Vec<String> {
 fn dict_zip<T: Eq + std::hash::Hash + Clone, U: Clone>(x: &[T], y: &[U]) -> HashMap<T, U> {
     let mut map = HashMap::new();
     for (i, key) in x.iter().enumerate() {
-       map.insert(key.clone(), y[i].clone());
+        map.insert(key.clone(), y[i].clone());
     }
     map
 }
@@ -148,7 +167,10 @@ fn get_pairs(word: &[String]) -> HashSet<Vec<String>> {
 fn bpe(token: &str, bpe_ranks: &HashMap<Vec<String>, usize>) -> String {
     let byte_encoder = bytes_to_unicode();
 
-    let mut word = token.chars().map(|c| byte_encoder[&(c as u32)].to_string()).collect::<Vec<_>>();
+    let mut word = token
+        .chars()
+        .map(|c| byte_encoder[&(c as u32)].to_string())
+        .collect::<Vec<_>>();
     let mut pairs = get_pairs(&word);
 
     while !pairs.is_empty() {
@@ -164,7 +186,7 @@ fn bpe(token: &str, bpe_ranks: &HashMap<Vec<String>, usize>) -> String {
             .unwrap();
 
         if !bpe_ranks.contains_key(&bigram) {
-            break
+            break;
         }
 
         let first = &bigram[0];

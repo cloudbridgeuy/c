@@ -50,7 +50,7 @@ impl CompletionsCreateCommand {
                 }
 
                 if !stdin.is_empty() {
-                    if prompt.len() == 0 {
+                    if prompt.is_empty() {
                         api.prompt = Some(SingleOrVec::Single(
                             String::from_utf8_lossy(&stdin).to_string(),
                         ));
@@ -59,7 +59,7 @@ impl CompletionsCreateCommand {
                         write!(
                             first,
                             "{}\n{}",
-                            String::from_utf8_lossy(&stdin).to_string(),
+                            String::from_utf8_lossy(&stdin),
                             prompt.first().unwrap().clone(),
                         )?;
                         let mut clone = prompt.clone().iter().skip(1).cloned().collect::<Vec<_>>();
@@ -73,7 +73,10 @@ impl CompletionsCreateCommand {
                 api.model = model.to_string();
                 api.max_tokens = *max_tokens;
                 api.n = *n;
-                user.as_ref().map(|s| api.user = Some(s.to_string()));
+
+                if let Some(user) = user.as_ref() {
+                    api.user = Some(user.to_string());
+                }
 
                 echo.map(|s| api.set_echo(s));
                 suffix.as_ref().map(|s| api.set_suffix(s.to_string()));

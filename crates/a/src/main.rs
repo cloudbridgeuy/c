@@ -1,4 +1,3 @@
-use a;
 use log::{debug, error, info};
 
 const WHISPER_TRIGGER: &str = "whisper";
@@ -27,7 +26,7 @@ fn main() {
 
     let mut client = a::gpt::GPTClient::new(api_key.to_string());
 
-    let (prompt, mut lang) = if tuple.1 == crate::WHISPER_TRIGGER {
+    let (prompt, lang) = if tuple.1 == crate::WHISPER_TRIGGER {
         let text = match a::record::whisper(api_key) {
             Ok(text) => text,
             Err(e) => {
@@ -40,7 +39,7 @@ fn main() {
             text.split_whitespace().next().unwrap_or("text").to_string(),
         )
     } else {
-        tuple.clone()
+        tuple
     };
 
     let mut response = match client.prompt(prompt) {
@@ -52,7 +51,7 @@ fn main() {
     };
     debug!("response: {:#?}", response);
 
-    response.push_str("\n");
+    response.push('\n');
     if let Some(r) = response.strip_suffix("\n\n") {
         response = String::from(r);
     }
@@ -64,5 +63,5 @@ fn main() {
     }
 
     info!("pretty print to stdout");
-    a::util::pretty_print(&a::util::remove_code_lines(&response), &mut lang);
+    a::util::pretty_print(&a::util::remove_code_lines(&response), &lang);
 }

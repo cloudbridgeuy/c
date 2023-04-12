@@ -37,7 +37,7 @@ pub fn gather_args(args: &mut Vec<String>) -> Result<(String, String), Box<dyn E
         }
 
         let words: Vec<String> = prompt.split_whitespace().map(|s| s.to_string()).collect();
-        if words.len() < 1 {
+        if words.is_empty() {
             error!("Less than one word found");
             return Err(Box::new(io::Error::new(
                 io::ErrorKind::InvalidInput,
