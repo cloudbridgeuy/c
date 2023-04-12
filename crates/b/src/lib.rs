@@ -166,10 +166,10 @@ pub enum ChatsCommands {
         /// or see the following link: https://platform.openai.com/docs/models/overview
         #[arg(long, default_value = "gpt-3.5-turbo")]
         model: String,
-        /// The prompt(s) to generate completions for, encoded as a string, array of strings, array
-        /// of tokens, or array of token arrays.
-        #[arg(long)]
-        prompt: Vec<String>,
+        /// The content of the message to be sent to the chatbot. You can also populate this value
+        /// from stdin. If you pass a value here and pipe data from stdin, both will be sent to the
+        /// API, stdin taking precedence.
+        prompt: Option<String>,
         /// The maximum number of tokens to generate in the completion.
         #[arg(long)]
         max_tokens: Option<u32>,

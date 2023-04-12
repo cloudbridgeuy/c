@@ -36,10 +36,17 @@ impl ChatsCreateCommand {
                     .to_string();
                 let mut api = ChatsApi::new(api_key)?;
 
-                api.messages = vec![ChatMessage {
-                    content: prompt.to_owned().join(" "),
-                    role: "user".to_owned(),
-                }];
+                if let Some(prompt) = prompt {
+                    api.messages = vec![ChatMessage {
+                        content: prompt.to_owned(),
+                        role: "user".to_owned(),
+                    }];
+                } else {
+                    api.messages = vec![ChatMessage {
+                        content: "".to_owned(),
+                        role: "user".to_owned(),
+                    }];
+                }
 
                 let mut stdin = Vec::new();
                 // Read from stdin if it's not a tty and don't forget to unlock `stdin`
@@ -49,13 +56,17 @@ impl ChatsCreateCommand {
                 }
 
                 if !stdin.is_empty() {
-                    api.messages.insert(
-                        0,
-                        ChatMessage {
-                            content: String::from_utf8_lossy(&stdin).to_string(),
-                            role: "user".to_owned(),
-                        },
-                    );
+                    if prompt.is_none() {
+                        api.messages[0].content = String::from_utf8_lossy(&stdin).to_string();
+                    } else {
+                        api.messages.insert(
+                            0,
+                            ChatMessage {
+                                content: String::from_utf8_lossy(&stdin).to_string(),
+                                role: "user".to_owned(),
+                            },
+                        );
+                    }
                 }
 
                 api.model = model.to_owned();
