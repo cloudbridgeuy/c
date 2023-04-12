@@ -1,15 +1,15 @@
 use clap::Parser;
 
 use b::chats::ChatsCreateCommand;
-use b::commands::{CommandCallers, CommandsError};
+use b::commands::CommandCallers;
 use b::completions::CompletionsCreateCommand;
 use b::edits::EditsCreateCommand;
 use b::tokenizer::{TokenizerDecodeCommand, TokenizerEncodeCommand};
 use b::utils::Spinner;
-use b::{Cli, CommandResult, Commands, Output, TokenizerCommands};
+use b::{Cli, CommandError, CommandResult, Commands, Output, TokenizerCommands};
 
 #[tokio::main]
-async fn main() -> Result<(), CommandsError> {
+async fn main() -> Result<(), CommandError> {
     env_logger::init();
 
     let cli = Cli::parse();

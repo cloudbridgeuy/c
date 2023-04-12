@@ -1,39 +1,8 @@
-use std::error::Error;
-
 use async_trait::async_trait;
 use gpt_tokenizer::Default as DefaultTokenizer;
 use serde::Serialize;
 
-use crate::{Cli, CommandHandle, CommandResult};
-
-#[derive(Debug)]
-pub struct TokenizerError {
-    message: String,
-}
-
-impl std::fmt::Display for TokenizerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl Error for TokenizerError {}
-
-impl From<serde_json::Error> for TokenizerError {
-    fn from(e: serde_json::Error) -> Self {
-        Self {
-            message: e.to_string(),
-        }
-    }
-}
-
-impl From<serde_yaml::Error> for TokenizerError {
-    fn from(e: serde_yaml::Error) -> Self {
-        Self {
-            message: e.to_string(),
-        }
-    }
-}
+use crate::{Cli, CommandError, CommandHandle, CommandResult};
 
 pub struct TokenizerEncodeCommand {
     tokenizer: DefaultTokenizer,
@@ -55,7 +24,7 @@ impl TokenizerEncodeCommand {
 }
 
 impl CommandResult for TokenizerEncodeResult {
-    type ResultError = TokenizerError;
+    type ResultError = CommandError;
 
     fn print_raw(&self) -> Result<(), Self::ResultError> {
         // Implement the print_raw function for TokenizerEncodeResult
@@ -68,7 +37,7 @@ impl CommandResult for TokenizerEncodeResult {
 
 #[async_trait]
 impl CommandHandle<TokenizerEncodeResult> for TokenizerEncodeCommand {
-    type CallError = TokenizerError;
+    type CallError = CommandError;
 
     async fn call(&self) -> Result<TokenizerEncodeResult, Self::CallError> {
         let value = self.tokenizer.encode(&self.prompt.to_string());
@@ -96,7 +65,7 @@ impl TokenizerDecodeCommand {
 }
 
 impl CommandResult for TokenizerDecodeResult {
-    type ResultError = TokenizerError;
+    type ResultError = CommandError;
 
     fn print_raw(&self) -> Result<(), Self::ResultError> {
         print!("{}", self.value);
@@ -106,7 +75,7 @@ impl CommandResult for TokenizerDecodeResult {
 
 #[async_trait]
 impl CommandHandle<TokenizerDecodeResult> for TokenizerDecodeCommand {
-    type CallError = TokenizerError;
+    type CallError = CommandError;
 
     async fn call(&self) -> Result<TokenizerDecodeResult, Self::CallError> {
         let value = self.tokenizer.decode(&self.encoded);

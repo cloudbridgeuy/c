@@ -6,7 +6,7 @@ use serde_either::SingleOrVec;
 use openai::chats::{Chat, ChatMessage, ChatsApi};
 use openai::error::OpenAi as OpenAiError;
 
-use crate::{ChatsCommands, Cli, CommandHandle, CommandResult};
+use crate::{ChatsCommands, Cli, CommandError, CommandHandle, CommandResult};
 
 pub struct ChatsCreateCommand {
     pub api: ChatsApi,
@@ -58,15 +58,15 @@ impl ChatsCreateCommand {
 }
 
 impl CommandResult for Chat {
-    type ResultError = OpenAiError;
+    type ResultError = CommandError;
 
-    fn print_raw(&self) -> Result<(), OpenAiError> {
+    fn print_raw(&self) -> Result<(), Self::ResultError> {
         match self.choices.first() {
             Some(choice) => {
                 println!("{}", choice.message.content);
                 Ok(())
             }
-            None => Err(OpenAiError::NoChoices),
+            None => Err(CommandError::from(OpenAiError::NoChoices)),
         }
     }
 }

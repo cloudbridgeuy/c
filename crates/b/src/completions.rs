@@ -6,7 +6,7 @@ use serde_either::SingleOrVec;
 use openai::completions::{Completions, CompletionsApi};
 use openai::error::OpenAi as OpenAiError;
 
-use crate::{Cli, CommandHandle, CommandResult, CompletionsCommands};
+use crate::{Cli, CommandError, CommandHandle, CommandResult, CompletionsCommands};
 
 pub struct CompletionsCreateCommand {
     pub api: CompletionsApi,
@@ -63,15 +63,15 @@ impl CompletionsCreateCommand {
 }
 
 impl CommandResult for Completions {
-    type ResultError = OpenAiError;
+    type ResultError = CommandError;
 
-    fn print_raw(&self) -> Result<(), OpenAiError> {
+    fn print_raw(&self) -> Result<(), Self::ResultError> {
         match self.choices.first() {
             Some(choice) => {
                 println!("{}", choice.text);
                 Ok(())
             }
-            None => Err(OpenAiError::NoChoices),
+            None => Err(CommandError::from(OpenAiError::NoChoices)),
         }
     }
 }

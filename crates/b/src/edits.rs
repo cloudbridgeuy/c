@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use openai::edits::{Edit, EditsApi};
 use openai::error::OpenAi as OpenAiError;
 
-use crate::{Cli, CommandHandle, CommandResult, EditsCommands};
+use crate::{Cli, CommandError, CommandHandle, CommandResult, EditsCommands};
 
 pub struct EditsCreateCommand {
     pub api: EditsApi,
@@ -42,15 +42,15 @@ impl EditsCreateCommand {
 }
 
 impl CommandResult for Edit {
-    type ResultError = OpenAiError;
+    type ResultError = CommandError;
 
-    fn print_raw(&self) -> Result<(), OpenAiError> {
+    fn print_raw(&self) -> Result<(), Self::ResultError> {
         match self.choices.first() {
             Some(choice) => {
                 println!("{}", choice.text);
                 Ok(())
             }
-            None => Err(OpenAiError::NoChoices),
+            None => Err(CommandError::from(OpenAiError::NoChoices)),
         }
     }
 }

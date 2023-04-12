@@ -4,12 +4,58 @@ use async_trait::async_trait;
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 
+use openai::error::OpenAi as OpenAiError;
+
 pub mod chats;
 pub mod commands;
 pub mod completions;
 pub mod edits;
 pub mod tokenizer;
 pub mod utils;
+
+#[derive(Debug)]
+pub enum CommandError {
+    /// Struct can't be serialized/deserialized
+    SerializationError { body: String },
+
+    /// OpenAi API Error
+    OpenAiError { body: String },
+
+    /// Tokenizer Error
+    Tokenizer { body: String },
+}
+
+impl std::fmt::Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#?}", self)
+    }
+}
+
+impl Error for CommandError {}
+
+impl From<OpenAiError> for CommandError {
+    fn from(e: OpenAiError) -> Self {
+        Self::OpenAiError {
+            body: e.to_string(),
+        }
+    }
+}
+
+impl From<serde_json::Error> for CommandError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::SerializationError {
+            body: e.to_string(),
+        }
+    }
+}
+
+impl From<serde_yaml::Error> for CommandError {
+    fn from(e: serde_yaml::Error) -> Self {
+        Self::SerializationError {
+            body: e.to_string(),
+        }
+    }
+}
 
 pub trait CommandResult {
     type ResultError: Error + From<serde_json::Error> + From<serde_yaml::Error>;
