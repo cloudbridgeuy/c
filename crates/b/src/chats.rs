@@ -19,6 +19,7 @@ impl ChatsCreateCommand {
             ChatsCommands::Create {
                 model,
                 prompt,
+                system,
                 max_tokens,
                 temperature,
                 top_p,
@@ -55,6 +56,16 @@ impl ChatsCreateCommand {
                             role: "user".to_owned(),
                         }];
                     }
+                }
+
+                if let Some(s) = system {
+                    api.messages.insert(
+                        0,
+                        ChatMessage {
+                            content: s.to_owned(),
+                            role: "system".to_owned(),
+                        },
+                    );
                 }
 
                 api.model = model.to_owned();

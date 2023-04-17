@@ -166,6 +166,9 @@ pub enum ChatsCommands {
         /// or see the following link: https://platform.openai.com/docs/models/overview
         #[arg(long, default_value = "gpt-3.5-turbo")]
         model: String,
+        /// The system message helps set the behavior of the assistant.
+        #[arg(long)]
+        system: Option<String>,
         /// The content of the message to be sent to the chatbot. You can also populate this value
         /// from stdin. If you pass a value here and pipe data from stdin, both will be sent to the
         /// API, stdin taking precedence.
