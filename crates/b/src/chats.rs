@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::io::Read;
 
 use async_trait::async_trait;
 use serde_either::SingleOrVec;
@@ -7,6 +6,7 @@ use serde_either::SingleOrVec;
 use openai::chats::{Chat, ChatMessage, ChatsApi};
 use openai::error::OpenAi as OpenAiError;
 
+use crate::utils::read_from_stdin;
 use crate::{ChatsCommands, Cli, CommandError, CommandHandle, CommandResult};
 
 pub struct ChatsCreateCommand {
@@ -36,36 +36,24 @@ impl ChatsCreateCommand {
                     .to_string();
                 let mut api = ChatsApi::new(api_key)?;
 
-                if let Some(prompt) = prompt {
-                    api.messages = vec![ChatMessage {
-                        content: prompt.to_owned(),
-                        role: "user".to_owned(),
-                    }];
-                } else {
-                    api.messages = vec![ChatMessage {
-                        content: "".to_owned(),
-                        role: "user".to_owned(),
-                    }];
-                }
-
-                let mut stdin = Vec::new();
-                // Read from stdin if it's not a tty and don't forget to unlock `stdin`
-                {
-                    let mut stdin_lock = std::io::stdin().lock();
-                    stdin_lock.read_to_end(&mut stdin)?;
-                }
-
-                if !stdin.is_empty() {
-                    if prompt.is_none() {
-                        api.messages[0].content = String::from_utf8_lossy(&stdin).to_string();
-                    } else {
-                        api.messages.insert(
-                            0,
-                            ChatMessage {
-                                content: String::from_utf8_lossy(&stdin).to_string(),
-                                role: "user".to_owned(),
-                            },
-                        );
+                match prompt {
+                    Some(s) if s == "-" => {
+                        api.messages = vec![ChatMessage {
+                            content: read_from_stdin()?,
+                            role: "user".to_owned(),
+                        }];
+                    }
+                    Some(s) => {
+                        api.messages = vec![ChatMessage {
+                            content: s.to_owned(),
+                            role: "user".to_owned(),
+                        }];
+                    }
+                    None => {
+                        api.messages = vec![ChatMessage {
+                            content: "".to_owned(),
+                            role: "user".to_owned(),
+                        }];
                     }
                 }
 
