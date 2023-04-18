@@ -243,7 +243,7 @@ impl CompletionsApi {
             }
         }
 
-        log::debug!("Set stop to {:?}", self.stop);
+        log::debug!("Set stop to {:#?}", self.stop);
 
         Ok(self)
     }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 
 use async_trait::async_trait;
@@ -29,6 +30,7 @@ impl ChatsCreateCommand {
                 presence_penalty,
                 frequency_penalty,
                 user,
+                logit_bias,
             } => {
                 let api_key = cli
                     .api_key
@@ -80,6 +82,14 @@ impl ChatsCreateCommand {
                 top_p.map(|s| api.set_top_p(s));
                 presence_penalty.map(|s| api.set_presence_penalty(s));
                 frequency_penalty.map(|s| api.set_frequency_penalty(s));
+
+                if let Some(logit_bias) = logit_bias {
+                    let mut map = HashMap::new();
+                    for (key, value) in logit_bias {
+                        map.insert(key.to_owned(), *value);
+                    }
+                    api.logit_bias = Some(map);
+                }
 
                 Ok(Self { api })
             }

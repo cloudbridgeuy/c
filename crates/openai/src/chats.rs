@@ -31,7 +31,7 @@ pub struct ChatsApi {
     #[serde(skip_serializing_if = "Option::is_none")]
     frequency_penalty: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub logit_bias: Option<HashMap<String, f32>>,
+    pub logit_bias: Option<HashMap<u32, f32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
 }
@@ -213,6 +213,8 @@ impl ChatsApi {
                 })
             }
         };
+
+        log::debug!("Response: {}", body);
 
         let body: Chat = match serde_json::from_str(&body) {
             Ok(body) => body,
