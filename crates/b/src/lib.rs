@@ -166,6 +166,9 @@ pub enum ChatsCommands {
         /// or see the following link: https://platform.openai.com/docs/models/overview
         #[arg(long, default_value = "gpt-3.5-turbo")]
         model: String,
+        /// Chat session name. Will be used to store previous session interactions.
+        #[arg(long)]
+        session: Option<String>,
         /// The system message helps set the behavior of the assistant.
         #[arg(long)]
         system: Option<String>,

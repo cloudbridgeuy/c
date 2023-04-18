@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs::{create_dir_all, File};
+use std::io::{BufReader, BufWriter};
 
 use log;
 use serde::{Deserialize, Serialize};
@@ -6,8 +8,9 @@ use serde_either::SingleOrVec;
 
 use crate::client::Client;
 use crate::error;
+use crate::utils::{directory_exists, file_exists, get_home_directory};
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct ChatsApi {
     #[serde(skip)]
     client: Client,
@@ -34,9 +37,11 @@ pub struct ChatsApi {
     pub logit_bias: Option<HashMap<u32, f32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct ChatMessage {
     pub role: String,
     pub content: String,
@@ -68,6 +73,7 @@ pub struct ChatUsage {
 const DEFAULT_MODEL: &str = "gpt-3.5-turbo";
 
 impl ChatsApi {
+    /// Creates a new ChatsApi instance.
     pub fn new(api_key: String) -> Result<Self, error::OpenAi> {
         let client = match Client::new(api_key) {
             Ok(client) => client,
@@ -86,6 +92,35 @@ impl ChatsApi {
             messages: Vec::new(),
             ..Default::default()
         })
+    }
+
+    /// Creates a new ChatsApi instance by loading the sessions file
+    pub fn new_with_session(api_key: String, session: String) -> Result<Self, error::OpenAi> {
+        let session_file = get_sessions_file(&session)?;
+        let mut chats_api = deserialize_sessions_file(&session_file)?;
+
+        chats_api.client = match Client::new(api_key) {
+            Ok(client) => client,
+            Err(err) => {
+                return Err(error::OpenAi::ClientError {
+                    body: err.to_string(),
+                });
+            }
+        };
+
+        log::debug!("Created OpenAi HTTP Client");
+
+        Ok(chats_api)
+    }
+
+    /// Stores the current session to a file.
+    pub fn store_session(&self) -> Result<(), error::OpenAi> {
+        if let Some(session) = &self.session {
+            let session_file = get_sessions_file(session)?;
+            serialize_sessions_file(&session_file, self)
+        } else {
+            Err(error::OpenAi::NoSession)
+        }
     }
 
     /// Gets the value of the temperature.
@@ -189,7 +224,11 @@ impl ChatsApi {
 
     /// Creates a completion for the chat message
     pub async fn create(&self) -> Result<Chat, error::OpenAi> {
-        let request = match serde_json::to_string(&self) {
+        let mut api = &mut (*self).clone();
+        let session = api.session.clone();
+        api.session = None;
+
+        let request = match serde_json::to_string(api) {
             Ok(request) => request,
             Err(err) => {
                 return Err(error::OpenAi::SerializationError {
@@ -225,6 +264,98 @@ impl ChatsApi {
             }
         };
 
+        if let Some(session) = session {
+            let session_file = get_sessions_file(&session)?;
+            api.session = Some(session);
+            api.messages
+                .push(body.choices.first().unwrap().message.clone());
+            serialize_sessions_file(&session_file, api)?;
+        }
+
         Ok(body)
+    }
+}
+
+/// Get the path to the sessions file.
+pub fn get_sessions_file(session: &str) -> Result<String, error::OpenAi> {
+    log::debug!("Getting sessions file: {}", session);
+
+    let home_dir = get_home_directory();
+
+    log::debug!("Home directory: {}", home_dir);
+
+    // Create the HOME directory if it doesn't exist
+    if !directory_exists(&home_dir) {
+        log::debug!("Creating home directory: {}", home_dir);
+        create_dir_all(&home_dir).unwrap();
+    }
+
+    let sessions_file = format!("{}/{}", home_dir, session);
+
+    // Create the sessions file if it doesn't exist
+    if !file_exists(&sessions_file) {
+        log::debug!("Creating sessions file: {}", sessions_file);
+        File::create(&sessions_file).unwrap();
+        let mut chats_api = ChatsApi::new(Default::default())?;
+        chats_api.session = Some(session.to_string());
+        chats_api.messages = Vec::new();
+        serialize_sessions_file(&sessions_file, &chats_api)?;
+    }
+
+    log::debug!("Sessions file: {}", sessions_file);
+
+    Ok(sessions_file)
+}
+
+/// Deserialize the sessions file.
+pub fn deserialize_sessions_file(session_file: &str) -> Result<ChatsApi, error::OpenAi> {
+    log::debug!("Deserializing sessions file: {}", session_file);
+
+    let file = match File::open(session_file) {
+        Ok(file) => file,
+        Err(err) => {
+            return Err(error::OpenAi::FileError {
+                body: err.to_string(),
+            });
+        }
+    };
+
+    let reader = BufReader::new(file);
+
+    let chats_api: ChatsApi = match serde_json::from_reader(reader) {
+        Ok(chats_api) => chats_api,
+        Err(err) => {
+            return Err(error::OpenAi::DeserializationError {
+                body: err.to_string(),
+            });
+        }
+    };
+
+    Ok(chats_api)
+}
+
+/// Serialize the sessions file
+pub fn serialize_sessions_file(
+    session_file: &str,
+    chats_api: &ChatsApi,
+) -> Result<(), error::OpenAi> {
+    log::debug!("Serializing sessions file: {}", session_file);
+
+    let file = match File::create(session_file) {
+        Ok(file) => file,
+        Err(err) => {
+            return Err(error::OpenAi::FileError {
+                body: err.to_string(),
+            });
+        }
+    };
+
+    let writer = BufWriter::new(file);
+
+    match serde_json::to_writer_pretty(writer, &chats_api) {
+        Ok(_) => Ok(()),
+        Err(err) => Err(error::OpenAi::SerializationError {
+            body: err.to_string(),
+        }),
     }
 }

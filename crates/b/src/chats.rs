@@ -19,6 +19,7 @@ impl ChatsCreateCommand {
         match command {
             ChatsCommands::Create {
                 model,
+                session,
                 prompt,
                 system,
                 max_tokens,
@@ -37,30 +38,34 @@ impl ChatsCreateCommand {
                     .as_ref()
                     .expect("No API Key provided")
                     .to_string();
-                let mut api = ChatsApi::new(api_key)?;
 
-                match prompt {
-                    Some(s) if s == "-" => {
-                        api.messages = vec![ChatMessage {
-                            content: read_from_stdin()?,
-                            role: "user".to_owned(),
-                        }];
-                    }
-                    Some(s) => {
-                        api.messages = vec![ChatMessage {
-                            content: s.to_owned(),
-                            role: "user".to_owned(),
-                        }];
-                    }
-                    None => {
-                        api.messages = vec![ChatMessage {
-                            content: "".to_owned(),
-                            role: "user".to_owned(),
-                        }];
-                    }
-                }
+                let mut api = if let Some(s) = session {
+                    ChatsApi::new_with_session(api_key, s.to_owned())?
+                } else {
+                    ChatsApi::new(api_key)?
+                };
+
+                let message = match prompt {
+                    Some(s) if s == "-" => ChatMessage {
+                        content: read_from_stdin()?,
+                        role: "user".to_owned(),
+                    },
+                    Some(s) => ChatMessage {
+                        content: s.to_owned(),
+                        role: "user".to_owned(),
+                    },
+                    None => ChatMessage {
+                        content: "".to_owned(),
+                        role: "user".to_owned(),
+                    },
+                };
+
+                api.messages.push(message);
 
                 if let Some(s) = system {
+                    if api.messages.first().unwrap().role == "system" {
+                        api.messages.remove(0);
+                    }
                     api.messages.insert(
                         0,
                         ChatMessage {
@@ -70,21 +75,27 @@ impl ChatsCreateCommand {
                     );
                 }
 
-                api.model = model.to_owned();
-                api.max_tokens = max_tokens.to_owned();
-                api.n = *n;
-                api.user = user.to_owned();
-                api.stream = stream.to_owned();
+                if &api.model != model {
+                    api.model = model.to_owned();
+                }
 
-                stop.as_ref()
-                    .map(|s| api.set_stop(SingleOrVec::Vec(s.to_vec())));
+                max_tokens.map(|s| api.max_tokens = Some(s));
+                n.map(|s| api.n = Some(s));
+                stream.map(|s| api.stream = Some(s));
                 temperature.map(|s| api.set_temperature(s));
                 top_p.map(|s| api.set_top_p(s));
                 presence_penalty.map(|s| api.set_presence_penalty(s));
                 frequency_penalty.map(|s| api.set_frequency_penalty(s));
 
+                if &api.user != user {
+                    api.user = user.to_owned();
+                }
+
+                stop.as_ref()
+                    .map(|s| api.set_stop(SingleOrVec::Vec(s.to_vec())));
+
                 if let Some(logit_bias) = logit_bias {
-                    let mut map = HashMap::new();
+                    let mut map = api.logit_bias.unwrap_or(HashMap::new());
                     for (key, value) in logit_bias {
                         map.insert(key.to_owned(), *value);
                     }
