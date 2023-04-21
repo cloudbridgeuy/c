@@ -32,6 +32,8 @@ impl ChatsCreateCommand {
                 frequency_penalty,
                 user,
                 logit_bias,
+                min_available_tokens,
+                max_supported_tokens,
             } => {
                 let api_key = cli
                     .api_key
@@ -49,14 +51,17 @@ impl ChatsCreateCommand {
                     Some(s) if s == "-" => ChatMessage {
                         content: read_from_stdin()?,
                         role: "user".to_owned(),
+                        ..Default::default()
                     },
                     Some(s) => ChatMessage {
                         content: s.to_owned(),
                         role: "user".to_owned(),
+                        ..Default::default()
                     },
                     None => ChatMessage {
                         content: "".to_owned(),
                         role: "user".to_owned(),
+                        ..Default::default()
                     },
                 };
 
@@ -71,6 +76,7 @@ impl ChatsCreateCommand {
                         ChatMessage {
                             content: s.to_owned(),
                             role: "system".to_owned(),
+                            ..Default::default()
                         },
                     );
                 }
@@ -86,6 +92,8 @@ impl ChatsCreateCommand {
                 top_p.map(|s| api.set_top_p(s));
                 presence_penalty.map(|s| api.set_presence_penalty(s));
                 frequency_penalty.map(|s| api.set_frequency_penalty(s));
+                min_available_tokens.map(|s| api.min_available_tokens = Some(s));
+                max_supported_tokens.map(|s| api.max_supported_tokens = Some(s));
 
                 if &api.user != user {
                     api.user = user.to_owned();

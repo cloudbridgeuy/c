@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs::{create_dir_all, File};
 use std::io::{BufReader, BufWriter};
 
+use gpt_tokenizer::Default as DefaultTokenizer;
 use log;
 use serde::{Deserialize, Serialize};
 use serde_either::SingleOrVec;
@@ -39,12 +40,18 @@ pub struct ChatsApi {
     pub user: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_available_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_supported_tokens: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct ChatMessage {
     pub role: String,
     pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pin: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -225,8 +232,26 @@ impl ChatsApi {
     /// Creates a completion for the chat message
     pub async fn create(&self) -> Result<Chat, error::OpenAi> {
         let mut api = &mut (*self).clone();
+
+        let min_available_tokens = api.min_available_tokens.unwrap_or(750);
+        let max_supported_tokens = api.max_supported_tokens.unwrap_or(4096);
         let session = api.session.clone();
+        let messages = api.messages.clone();
+
         api.session = None;
+        api.min_available_tokens = None;
+        api.max_supported_tokens = None;
+        api.messages = trim_messages(
+            api.messages.clone(),
+            max_supported_tokens - min_available_tokens,
+        )?
+        .iter()
+        .map(|m| ChatMessage {
+            role: m.role.clone(),
+            content: m.content.clone(),
+            pin: None,
+        })
+        .collect();
 
         let request = match serde_json::to_string(api) {
             Ok(request) => request,
@@ -236,6 +261,8 @@ impl ChatsApi {
                 });
             }
         };
+
+        log::debug!("Request: {}", request);
 
         let body = match self.client.post("/chat/completions", request).await {
             Ok(response) => match response.text().await {
@@ -267,6 +294,9 @@ impl ChatsApi {
         if let Some(session) = session {
             let session_file = get_sessions_file(&session)?;
             api.session = Some(session);
+            api.messages = messages;
+            api.min_available_tokens = Some(min_available_tokens);
+            api.max_supported_tokens = Some(max_supported_tokens);
             api.messages
                 .push(body.choices.first().unwrap().message.clone());
             serialize_sessions_file(&session_file, api)?;
@@ -357,5 +387,32 @@ pub fn serialize_sessions_file(
         Err(err) => Err(error::OpenAi::SerializationError {
             body: err.to_string(),
         }),
+    }
+}
+
+/// Trim messages until the total number of tokenizers inside is less than the maximum.
+fn trim_messages(
+    mut messages: Vec<ChatMessage>,
+    max: u32,
+) -> Result<Vec<ChatMessage>, error::OpenAi> {
+    let tokenizer = DefaultTokenizer::new();
+    let total_tokens: usize = messages
+        .iter()
+        .map(|m| tokenizer.encode(&m.content).len())
+        .sum();
+
+    if total_tokens as u32 <= max {
+        return Ok(messages);
+    }
+
+    if let Some((index, _)) = messages
+        .iter()
+        .enumerate()
+        .find(|(_, m)| m.role != "system" && Some(true) != m.pin)
+    {
+        messages.remove(index);
+        trim_messages(messages, max)
+    } else {
+        Err(error::OpenAi::TrimError)
     }
 }

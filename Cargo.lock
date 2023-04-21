@@ -1412,6 +1412,7 @@ version = "0.0.0"
 dependencies = [
  "custom_error",
  "env_logger",
+ "gpt_tokenizer",
  "log",
  "reqwest",
  "serde",

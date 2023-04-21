@@ -19,4 +19,5 @@ custom_error! {pub OpenAi
     NoSession = "no session",
     RequestError{body: String} = "request error: {body}",
     SerializationError{body: String} = "serialization error: {body}",
+    TrimError = "could not find a message to trim",
 }
