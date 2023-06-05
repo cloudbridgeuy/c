@@ -1,0 +1,94 @@
+use anyhow::Context;
+use anyhow::Result;
+use log;
+use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::{Client as ReqwestClient, Response as ReqwestResponse};
+use std::time::Duration;
+
+#[derive(Clone, Debug, Default)]
+pub struct Client {
+    reqwest: ReqwestClient,
+    base_url: String,
+    headers: HeaderMap,
+}
+
+const ANTHROPIC_API_URL: &str = "https://api.anthropic.com";
+
+fn create_headers(api_key: String) -> Result<HeaderMap> {
+    let mut headers = HeaderMap::new();
+
+    let authorization =
+        HeaderValue::from_str(api_key.as_str()).context("can't create authorization header")?;
+    let content_type =
+        HeaderValue::from_str("application/json").context("can't create content-type header")?;
+
+    headers.insert("X-API-Key", authorization);
+    headers.insert("Content-Type", content_type);
+
+    Ok(headers)
+}
+
+impl Client {
+    /// Creates a new client with the given API key.
+    pub fn new(api_key: String) -> Result<Self> {
+        let reqwest = ReqwestClient::builder()
+            .timeout(Duration::from_secs(300))
+            .build()
+            .context("can't create reqwest client")?;
+
+        log::debug!("created reqwest client");
+
+        let headers = create_headers(api_key).context("can't create headers")?;
+
+        log::debug!("created headers");
+
+        Ok(Self {
+            reqwest,
+            base_url: ANTHROPIC_API_URL.to_string(),
+            headers,
+        })
+    }
+
+    /// Changes the client base url.
+    pub fn set_base_url(&mut self, base_url: String) -> &mut Self {
+        self.base_url = base_url;
+        self
+    }
+
+    /// Change the Anthropic API key.
+    pub fn set_api_key(&mut self, api_key: String) -> Result<&mut Self> {
+        self.headers = create_headers(api_key).context("can't create headers")?;
+        Ok(self)
+    }
+
+    /// Makes a GET request to the Anthropic API.
+    pub async fn get(&self, endpoint: &str) -> Result<ReqwestResponse> {
+        let mut url = self.base_url.clone();
+        url.push_str(endpoint);
+
+        log::debug!("reqwest GET: {}", url);
+
+        self.reqwest
+            .get(url)
+            .headers(self.headers.clone())
+            .send()
+            .await
+            .context("can't send reqwest request")
+    }
+
+    /// Makes a POST request to the Anthropic API.
+    pub async fn post(&self, endpoint: &str, body: String) -> Result<ReqwestResponse> {
+        let mut url = self.base_url.clone();
+        url.push_str(endpoint);
+
+        log::debug!("reqwest POST: {}", url);
+
+        self.reqwest
+            .post(url)
+            .headers(self.headers.clone())
+            .body(body)
+            .send()
+            .await
+            .context("can't send reqwest request")
+    }
+}

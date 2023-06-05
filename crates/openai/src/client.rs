@@ -47,7 +47,7 @@ impl Client {
     /// Creates a new client.
     pub fn new(api_key: String) -> Result<Self, error::OpenAi> {
         let reqwest = match ReqwestClient::builder()
-            .timeout(Duration::from_secs(90))
+            .timeout(Duration::from_secs(300))
             .build()
         {
             Ok(x) => x,

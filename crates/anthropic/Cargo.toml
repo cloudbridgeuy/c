@@ -1,0 +1,28 @@
+[package]
+name = "anthropic"
+version = "0.0.0"
+homepage = "https://github.com/cloudbridgeuy/a"
+description = "Anthropic API Wrapper"
+autobins = false
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "anthropic"
+path = "src/lib.rs"
+
+[dependencies]
+fs = { path = "../fs", version = "0.0.0" }
+gpt_tokenizer = { version = "0.1.0", path = "../../lib/gpt_tokenizer" }
+custom_error = "1.9.2"                                  # Define custom errors without boilerplate using the custom_error! macro.
+env_logger = "0.10.0"
+log = "0.4.17"
+reqwest = { version = "0.11.16", features = ["json"] }
+serde = { version = "1.0.152", features = ["derive"] }
+serde_either = "0.2.1"          # Simple set to enums to deserialize and serialize data that can either be string, struct or vec
+serde_json = "1.0.93"
+serde_yaml = "0.9.19"                # YAML data format for Serde
+anyhow = "1.0.71"                                   # Flexible concrete Error type built on std::error::Error
+tokio = { version = "1.27.0", features = ["full"] }                   # An event-driven, non-blocking I/O platform for writing asynchronous I/O backed applications.…

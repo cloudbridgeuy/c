@@ -45,6 +45,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "anthropic"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "custom_error",
+ "env_logger",
+ "fs",
+ "gpt_tokenizer",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_either",
+ "serde_json",
+ "serde_yaml 0.9.19",
+ "tokio",
+]
+
+[[package]]
+name = "anyhow"
+version = "1.0.71"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
+
+[[package]]
 name = "async-trait"
 version = "0.1.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -685,6 +709,10 @@ checksum = "a9c384f161156f5260c24a097c56119f9be8c798586aecc13afbcbe7b7e26bf8"
 dependencies = [
  "percent-encoding",
 ]
+
+[[package]]
+name = "fs"
+version = "0.0.0"
 
 [[package]]
 name = "futures-channel"

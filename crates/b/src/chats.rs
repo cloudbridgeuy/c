@@ -41,6 +41,7 @@ impl ChatsCreateCommand {
                     .expect("No API Key provided")
                     .to_string();
 
+                log::debug!("Session: {:?}", session);
                 let mut api = if let Some(s) = session {
                     ChatsApi::new_with_session(api_key, s.to_owned())?
                 } else {
@@ -84,6 +85,8 @@ impl ChatsCreateCommand {
                 if &api.model != model {
                     api.model = model.to_owned();
                 }
+
+                log::debug!("Using model: {:?}", api.model);
 
                 max_tokens.map(|s| api.max_tokens = Some(s));
                 n.map(|s| api.n = Some(s));

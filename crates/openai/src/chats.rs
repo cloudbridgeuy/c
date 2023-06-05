@@ -291,10 +291,10 @@ impl ChatsApi {
             }
         };
 
+        log::debug!("Checking for session, {:?}", session);
         if let Some(session) = session {
             let session_file = get_sessions_file(&session)?;
             api.session = Some(session);
-            api.messages = messages;
             api.min_available_tokens = Some(min_available_tokens);
             api.max_supported_tokens = Some(max_supported_tokens);
             api.messages

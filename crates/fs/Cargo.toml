@@ -1,0 +1,16 @@
+[package]
+name = "fs"
+version = "0.0.0"
+homepage = "https://github.com/cloudbridgeuy/a"
+description = "FileSystem Utilities"
+autobins = false
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "fs"
+path = "src/lib.rs"
+
+[dependencies]
