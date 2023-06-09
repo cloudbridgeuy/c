@@ -36,7 +36,7 @@ impl ChatsCreateCommand {
                 max_supported_tokens,
             } => {
                 let api_key = cli
-                    .api_key
+                    .openai_api_key
                     .as_ref()
                     .expect("No API Key provided")
                     .to_string();
@@ -82,8 +82,8 @@ impl ChatsCreateCommand {
                     );
                 }
 
-                if &api.model != model {
-                    api.model = model.to_owned();
+                if let Some(m) = model {
+                    api.model = m.to_owned();
                 }
 
                 log::debug!("Using model: {:?}", api.model);

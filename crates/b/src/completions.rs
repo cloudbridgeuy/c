@@ -36,7 +36,7 @@ impl CompletionsCreateCommand {
                 user,
             } => {
                 let api_key = cli
-                    .api_key
+                    .openai_api_key
                     .as_ref()
                     .expect("No API key provided")
                     .to_string();

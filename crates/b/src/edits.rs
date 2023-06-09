@@ -22,7 +22,7 @@ impl EditsCreateCommand {
                 top_p,
             } => {
                 let api_key = cli
-                    .api_key
+                    .openai_api_key
                     .as_ref()
                     .expect("No API Key provided")
                     .to_string();

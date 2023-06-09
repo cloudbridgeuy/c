@@ -1,5 +1,6 @@
 use clap::Parser;
 
+use b::anthropic::CompleteCreateCommand;
 use b::chats::ChatsCreateCommand;
 use b::commands::CommandCallers;
 use b::completions::CompletionsCreateCommand;
@@ -15,6 +16,9 @@ async fn main() -> Result<(), CommandError> {
     let cli = Cli::parse();
 
     let command = match cli.command {
+        Some(Commands::Anthropic { ref command }) => CommandCallers::AnthropicCompleteCreate(
+            CompleteCreateCommand::new(&cli, command).expect("Failed to parse command"),
+        ),
         Some(Commands::Chats { ref command }) => CommandCallers::ChatsCreate(
             ChatsCreateCommand::new(&cli, command).expect("Failed to parse command"),
         ),

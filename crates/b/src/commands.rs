@@ -1,8 +1,10 @@
+use anthropic::complete::Response;
 use openai::chats::Chat;
 use openai::completions::Completions;
 use openai::edits::Edit;
 use serde::Serialize;
 
+use crate::anthropic::CompleteCreateCommand;
 use crate::chats::ChatsCreateCommand;
 use crate::completions::CompletionsCreateCommand;
 use crate::edits::EditsCreateCommand;
@@ -17,6 +19,7 @@ pub enum CommandCallers {
     ChatsCreate(ChatsCreateCommand),
     EditsCreate(EditsCreateCommand),
     CompletionsCreate(CompletionsCreateCommand),
+    AnthropicCompleteCreate(CompleteCreateCommand),
 }
 
 #[derive(Serialize)]
@@ -26,6 +29,7 @@ pub enum CommandResults {
     ChatsCreate(Chat),
     EditsCreate(Edit),
     CompletionsCreate(Completions),
+    AnthropicCompleteCreate(Response),
 }
 
 impl CommandCallers {
@@ -51,6 +55,10 @@ impl CommandCallers {
                 Ok(result) => Ok(CommandResults::TokenizerEncode(result)),
                 Err(err) => Err(err),
             },
+            CommandCallers::AnthropicCompleteCreate(command) => match command.call().await {
+                Ok(result) => Ok(CommandResults::AnthropicCompleteCreate(result)),
+                Err(err) => Err(err),
+            },
         }
     }
 }
@@ -65,6 +73,7 @@ impl CommandResult for CommandResults {
             CommandResults::ChatsCreate(result) => result.print_json(w),
             CommandResults::EditsCreate(result) => result.print_json(w),
             CommandResults::CompletionsCreate(result) => result.print_json(w),
+            CommandResults::AnthropicCompleteCreate(result) => result.print_json(w),
         }
     }
 
@@ -75,6 +84,7 @@ impl CommandResult for CommandResults {
             CommandResults::ChatsCreate(result) => result.print_yaml(w),
             CommandResults::EditsCreate(result) => result.print_yaml(w),
             CommandResults::CompletionsCreate(result) => result.print_yaml(w),
+            CommandResults::AnthropicCompleteCreate(result) => result.print_yaml(w),
         }
     }
 
@@ -85,6 +95,7 @@ impl CommandResult for CommandResults {
             CommandResults::ChatsCreate(result) => result.print_raw(w),
             CommandResults::EditsCreate(result) => result.print_raw(w),
             CommandResults::CompletionsCreate(result) => result.print_raw(w),
+            CommandResults::AnthropicCompleteCreate(result) => result.print_raw(w),
         }
     }
 }

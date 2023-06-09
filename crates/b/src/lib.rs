@@ -4,8 +4,10 @@ use async_trait::async_trait;
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 
+use ::anthropic::complete::Model;
 use openai::error::OpenAi as OpenAiError;
 
+pub mod anthropic;
 pub mod chats;
 pub mod commands;
 pub mod completions;
@@ -26,6 +28,9 @@ pub enum CommandError {
 
     /// Io Error
     IoError { source: std::io::Error },
+
+    /// Anthropic Error
+    AnthropicError { body: String },
 }
 
 impl std::fmt::Display for CommandError {
@@ -105,12 +110,16 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
 
-    /// OpenAI API Key to use. Will default to the environment variable `OPENAI_API_KEY` if not
-    /// set.
+    /// OpenAI API Key to use. Will default to the environment variable `OPENAI_API_KEY` if not set.
     #[arg(long, env = "OPENAI_API_KEY")]
-    pub api_key: Option<String>,
+    pub openai_api_key: Option<String>,
+    /// Anthropic API Key to use. Will default to the environment variable `OPENAI_API_KEY` if not set.
+    #[arg(long, env = "ANTHROPIC_API_KEY")]
+    pub anthropic_api_key: Option<String>,
+    /// Command output format
     #[clap(short, long, value_enum, default_value_t = Output::Raw)]
     pub output: Output,
+    /// Silent mode
     #[clap(short, long, action, default_value_t = false)]
     pub silent: bool,
 }
@@ -148,6 +157,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: EditsCommands,
     },
+    /// Anthropic API commands
+    Anthropic {
+        #[command(subcommand)]
+        command: AnthropicCommands,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -158,14 +172,90 @@ pub enum TokenizerCommands {
     Decode { encoded: Vec<u32> },
 }
 
+#[derive(ValueEnum, Debug, Clone, Copy)]
+#[clap(rename_all = "kebab-case")]
+pub enum ClaudeModelOption {
+    ClaudeV1,
+    ClaudeV1_100k,
+    ClaudeInstantV1,
+    ClaudeInstantV1_100k,
+}
+
+impl From<ClaudeModelOption> for Model {
+    fn from(other: ClaudeModelOption) -> Model {
+        match other {
+            ClaudeModelOption::ClaudeV1 => Model::ClaudeV1,
+            ClaudeModelOption::ClaudeV1_100k => Model::ClaudeV1_100k,
+            ClaudeModelOption::ClaudeInstantV1 => Model::ClaudeInstantV1,
+            ClaudeModelOption::ClaudeInstantV1_100k => Model::ClaudeInstantV1_100k,
+        }
+    }
+}
+
+impl From<Model> for ClaudeModelOption {
+    fn from(other: Model) -> ClaudeModelOption {
+        match other {
+            Model::ClaudeV1 => ClaudeModelOption::ClaudeV1,
+            Model::ClaudeV1_100k => ClaudeModelOption::ClaudeV1_100k,
+            Model::ClaudeInstantV1 => ClaudeModelOption::ClaudeInstantV1,
+            Model::ClaudeInstantV1_100k => ClaudeModelOption::ClaudeInstantV1_100k,
+        }
+    }
+}
+
+#[derive(Debug, Subcommand)]
+pub enum AnthropicCommands {
+    /// Create a new complete session
+    Create {
+        /// The prompt you want Claude to complete.
+        prompt: String,
+        /// Chat session name. Will be used to store previous session interactions.
+        #[arg(long)]
+        session: Option<String>,
+        /// The maximum number of tokens supported by the model.
+        #[arg(long, default_value = "4096")]
+        max_supported_tokens: Option<u32>,
+        /// Controls which version of Claude answers your request. Two model families are exposed
+        /// Claude and Claude Instant.
+        #[clap(short, long, value_enum)]
+        model: Option<ClaudeModelOption>,
+        /// A maximum number of tokens to generate before stopping.
+        #[arg(long, default_value = "750")]
+        max_tokens_to_sample: Option<u32>,
+        /// Claude models stop on `\n\nHuman:`, and may include additional built-in stops sequences
+        /// in the future. By providing the `stop_sequences` parameter, you may include additional
+        /// strings that will cause the model to stop generation.
+        #[clap(long)]
+        stop_sequences: Option<Vec<String>>,
+        /// Wether to incrementally stream the response using SSE.
+        #[clap(long)]
+        stream: Option<bool>,
+        /// Amount of randomness injected into the response. Ranges from 0 to 1. Use temp closer to
+        /// 0 for analytical/multiple choice, and temp closer to 1 for creative and generative
+        /// tasks.
+        #[clap(long)]
+        temperature: Option<f32>,
+        /// Only sample fromt the top `K` options of each subsequent token. Used to remove "long
+        /// tail" low probability responses. Defaults to -1, which disables it.
+        #[clap(long)]
+        top_k: Option<f32>,
+        /// Does nucleus sampleing, in which we compute the cumulative distribution over all the
+        /// options for each subsequent token in decreasing probability order and cut it off once
+        /// it reaches a particular probability specified by the top_p. Defaults to -1, which
+        /// disables it. Not that you should either alter *temperature* or *top_p* but not both.
+        #[clap(long)]
+        top_p: Option<f32>,
+    },
+}
+
 #[derive(Debug, Subcommand)]
 pub enum ChatsCommands {
     /// Create a new chat session
     Create {
         /// ID of the model to use. Use the `modesl list` command to see all your available models
         /// or see the following link: https://platform.openai.com/docs/models/overview
-        #[arg(long, default_value = "gpt-3.5-turbo")]
-        model: String,
+        #[clap(long)]
+        model: Option<String>,
         /// Chat session name. Will be used to store previous session interactions.
         #[arg(long)]
         session: Option<String>,
