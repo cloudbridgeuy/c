@@ -297,6 +297,7 @@ impl ChatsApi {
             api.session = Some(session);
             api.min_available_tokens = Some(min_available_tokens);
             api.max_supported_tokens = Some(max_supported_tokens);
+            api.messages = messages;
             api.messages
                 .push(body.choices.first().unwrap().message.clone());
             serialize_sessions_file(&session_file, api)?;
