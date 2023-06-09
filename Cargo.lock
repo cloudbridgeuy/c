@@ -100,6 +100,8 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 name = "b"
 version = "0.0.0"
 dependencies = [
+ "anthropic",
+ "anyhow",
  "async-trait",
  "clap 4.1.8",
  "env_logger",
