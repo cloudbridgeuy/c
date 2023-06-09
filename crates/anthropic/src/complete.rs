@@ -1,16 +1,16 @@
-use std::collections::HashMap;
 use std::fs::{create_dir_all, File};
 use std::io::{BufReader, BufWriter};
 
 use anyhow::{anyhow, Result};
 use fs::{directory_exists, file_exists, get_home_directory};
 use log;
-use serde::{Deserialize, Serialize};
+use serde::{self, Deserialize, Serialize};
 
 use crate::client::Client;
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub enum Models {
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Model {
     #[default]
     ClaudeV1,
     ClaudeV1_100k,
@@ -18,7 +18,7 @@ pub enum Models {
     ClaudeInstantV1_100k,
 }
 
-impl Models {
+impl Model {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::ClaudeV1 => "claude-v1",
@@ -30,19 +30,11 @@ impl Models {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub struct Message {
-    pub role: String,
-    pub content: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pin: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Api {
     #[serde(skip)]
     client: Client,
     // Complete Properties (https://console.anthropic.com/docs/api/reference)
-    pub model: Models,
+    pub model: Model,
     pub prompt: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens_to_sample: Option<u32>,
@@ -57,15 +49,16 @@ pub struct Api {
     #[serde(skip_serializing_if = "Option::is_none")]
     top_p: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<HashMap<String, String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub messages: Option<Vec<Message>>,
+    pub metadata: Option<Metadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_available_tokens: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub max_supported_tokens: Option<u32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct Metadata {
+    pub user_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -170,17 +163,22 @@ impl Api {
     pub async fn create(&self) -> Result<Response> {
         let mut api = &mut (*self).clone();
 
-        let min_available_tokens = api.min_available_tokens.unwrap_or(750);
+        let max_tokens_to_sample = api.max_tokens_to_sample.unwrap_or(750);
         let max_supported_tokens = api.max_supported_tokens.unwrap_or(4096);
         let session = api.session.clone();
+        let mut prompt = prepare_prompt(api.prompt.clone());
 
-        api.min_available_tokens = None;
+        log::debug!("max_tokens_to_sample: {}", max_tokens_to_sample);
+        log::debug!("max_supported_tokens: {}", max_supported_tokens);
+        log::debug!("session: {:?}", session);
+        log::debug!("prompt: {}", prompt);
+
         api.max_supported_tokens = None;
         api.session = None;
 
         api.prompt = trim_prompt(
             api.prompt.to_string(),
-            min_available_tokens - max_supported_tokens,
+            max_supported_tokens - max_tokens_to_sample,
         )?;
 
         let request = serde_json::to_string(api)?;
@@ -192,6 +190,9 @@ impl Api {
         log::debug!("response: {:?}", response);
 
         let body = response.text().await?;
+
+        log::debug!("body: {:?}", body);
+
         let response: Response = serde_json::from_str(&body)?;
 
         log::debug!("checking for session: {:?}", session);
@@ -199,9 +200,11 @@ impl Api {
             let session_file = get_session_file(&session)?;
 
             api.session = Some(session);
-            api.min_available_tokens = Some(min_available_tokens);
+            api.max_tokens_to_sample = Some(max_tokens_to_sample);
             api.max_supported_tokens = Some(max_supported_tokens);
-            api.prompt.push_str(&response.completion);
+
+            prompt.push_str(&response.completion);
+            api.prompt = prompt;
 
             serialize_sessions_file(&session_file, api)?;
         }
@@ -235,7 +238,6 @@ pub fn get_session_file(session: &str) -> Result<String> {
 
         let mut complete_api = Api::new(Default::default())?;
         complete_api.session = Some(session.to_string());
-        complete_api.messages = Some(Vec::new());
 
         serialize_sessions_file(&sessions_file, &complete_api)?;
     }
@@ -270,10 +272,7 @@ pub fn serialize_sessions_file(session_file: &str, complete_api: &Api) -> Result
 
 /// Trims the size of the prompt to match the max value.
 fn trim_prompt(prompt: String, max: u32) -> Result<String> {
-    let mut prompt = "\n\nHuman:".to_string() + &prompt + "\n\nAssistant:";
-
-    prompt = prompt.replace("\n\nHuman:\n\nHuman:", "\n\nHuman");
-    prompt = prompt.replace("\n\nAssistant:\n\nAssistant:", "\n\nAssistant");
+    let prompt = prepare_prompt(prompt);
 
     let mut words = prompt.split_whitespace().rev().collect::<Vec<&str>>();
 
@@ -292,5 +291,18 @@ fn trim_prompt(prompt: String, max: u32) -> Result<String> {
     words.reverse();
 
     // Join the selected words back together into a single string.
-    Ok("\n\nHuman:".to_string() + &words.join(" "))
+    Ok(prepare_prompt(words.join(" ")))
+}
+
+/// Prepare prompt for completion
+fn prepare_prompt(prompt: String) -> String {
+    let mut prompt = "\n\nHuman: ".to_string() + &prompt + "\n\nAssistant:";
+
+    prompt = prompt.replace("\n\nHuman:\n\nHuman: ", "\n\nHuman: ");
+    prompt = prompt.replace("\n\nHuman: \nHuman: ", "\n\nHuman: ");
+    prompt = prompt.replace("\n\nHuman: \n\nHuman: ", "\n\nHuman: ");
+    prompt = prompt.replace("\n\nAssistant:\n\nAssistant:", "\n\nAssistant:");
+    prompt = prompt.replace("\n\nAssistant: \n\nAssistant: ", "\n\nAssistant:");
+
+    prompt
 }
