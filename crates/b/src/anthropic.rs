@@ -16,6 +16,7 @@ impl CompleteCreateCommand {
         match command {
             AnthropicCommands::Create {
                 prompt,
+                system,
                 model,
                 max_tokens_to_sample,
                 stop_sequences,
@@ -58,6 +59,10 @@ impl CompleteCreateCommand {
                 }
 
                 log::debug!("model: {:?}", api.model);
+
+                if system.is_some() {
+                    api.system = system.clone();
+                }
 
                 max_tokens_to_sample.map(|s| api.max_tokens_to_sample = Some(s));
                 max_supported_tokens.map(|s| api.max_supported_tokens = Some(s));

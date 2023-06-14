@@ -36,6 +36,7 @@ pub struct Api {
     // Complete Properties (https://console.anthropic.com/docs/api/reference)
     pub model: Model,
     pub prompt: String,
+    pub system: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens_to_sample: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -176,10 +177,17 @@ impl Api {
         api.max_supported_tokens = None;
         api.session = None;
 
-        api.prompt = trim_prompt(
-            api.prompt.to_string(),
-            max_supported_tokens - max_tokens_to_sample,
-        )?;
+        let mut max = max_supported_tokens - max_tokens_to_sample;
+
+        if let Some(system) = &api.system {
+            log::debug!("system: {:?}", system);
+            api.prompt = prepare_prompt(format!("{}\n{}", system, prompt));
+            max -= token_length(system.to_string()) as u32
+        }
+
+        api.prompt = trim_prompt(api.prompt.to_string(), max)?;
+
+        log::debug!("trimmed prompt: {}", api.prompt);
 
         let request = serde_json::to_string(api)?;
 
@@ -270,18 +278,25 @@ pub fn serialize_sessions_file(session_file: &str, complete_api: &Api) -> Result
     Ok(())
 }
 
+/// Token language of a prompt.
+/// TODO: Make this better!
+fn token_length(prompt: String) -> usize {
+    let words = prompt.split_whitespace().rev().collect::<Vec<&str>>();
+
+    // Estimate the total tokens by multiplying words by 4/3
+    words.len() * 4 / 3
+}
+
 /// Trims the size of the prompt to match the max value.
 fn trim_prompt(prompt: String, max: u32) -> Result<String> {
     let prompt = prepare_prompt(prompt);
-
-    let mut words = prompt.split_whitespace().rev().collect::<Vec<&str>>();
-
-    // Estimate the total tokens by multiplying words by 4/3
-    let tokens = words.len() * 4 / 3;
+    let tokens = token_length(prompt.clone());
 
     if tokens as u32 <= max {
         return Ok(prompt);
     }
+
+    let mut words = prompt.split_whitespace().rev().collect::<Vec<&str>>();
 
     // Because we need to add back "\n\nHuman:" back to the prompt.
     let diff = words.len() - (max + 3) as usize;
@@ -298,9 +313,13 @@ fn trim_prompt(prompt: String, max: u32) -> Result<String> {
 fn prepare_prompt(prompt: String) -> String {
     let mut prompt = "\n\nHuman: ".to_string() + &prompt + "\n\nAssistant:";
 
+    prompt = prompt.replace("\n\n\n", "\n\n");
+    prompt = prompt.replace("Human: Human:", "Human:");
     prompt = prompt.replace("\n\nHuman:\n\nHuman: ", "\n\nHuman: ");
     prompt = prompt.replace("\n\nHuman: \nHuman: ", "\n\nHuman: ");
     prompt = prompt.replace("\n\nHuman: \n\nHuman: ", "\n\nHuman: ");
+    prompt = prompt.replace("\n\nHuman:\n\nAssistant:", "\n\nAssistant:");
+    prompt = prompt.replace("\n\nHuman: \n\nAssistant:", "\n\nAssistant:");
     prompt = prompt.replace("\n\nAssistant:\n\nAssistant:", "\n\nAssistant:");
     prompt = prompt.replace("\n\nAssistant: \n\nAssistant: ", "\n\nAssistant:");
 

@@ -209,6 +209,12 @@ pub enum AnthropicCommands {
     Create {
         /// The prompt you want Claude to complete.
         prompt: String,
+        /// The system prompt is an optional initial prompt that you could indclude with every
+        /// message. This is similar to how `system` prompts work with OpenAI Chat GPT models.
+        /// It's recommended that you use the `\n\nHuman:` and `\n\nAssistant:` stops tokens to
+        /// create the system prompt.
+        #[arg(long)]
+        system: Option<String>,
         /// Chat session name. Will be used to store previous session interactions.
         #[arg(long)]
         session: Option<String>,
