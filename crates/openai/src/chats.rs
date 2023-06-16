@@ -6,6 +6,7 @@ use gpt_tokenizer::Default as DefaultTokenizer;
 use log;
 use serde::{Deserialize, Serialize};
 use serde_either::SingleOrVec;
+use serde_json::Value;
 
 use crate::client::Client;
 use crate::error;
@@ -44,14 +45,27 @@ pub struct ChatsApi {
     pub min_available_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_supported_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub functions: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub function_call: Option<Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct ChatMessage {
     pub role: String,
-    pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub function_call: Option<FunctionCall>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pin: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct FunctionCall {
+    pub name: String,
+    pub arguments: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -249,9 +263,11 @@ impl ChatsApi {
         .map(|m| ChatMessage {
             role: m.role.clone(),
             content: m.content.clone(),
-            pin: None,
+            ..Default::default()
         })
         .collect();
+
+        log::debug!("Trimmed messages to {:?}", api.messages);
 
         let request = match serde_json::to_string(api) {
             Ok(request) => request,
@@ -397,9 +413,16 @@ fn trim_messages(
     max: u32,
 ) -> Result<Vec<ChatMessage>, error::OpenAi> {
     let tokenizer = DefaultTokenizer::new();
+
     let total_tokens: usize = messages
         .iter()
-        .map(|m| tokenizer.encode(&m.content).len())
+        .map(|m| {
+            if let Some(content) = &m.content {
+                tokenizer.encode(content).len()
+            } else {
+                0
+            }
+        })
         .sum();
 
     if total_tokens as u32 <= max {

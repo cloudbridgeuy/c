@@ -3,6 +3,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use serde_either::SingleOrVec;
+use serde_json::from_str;
 
 use openai::chats::{Chat, ChatMessage, ChatsApi};
 use openai::error::OpenAi as OpenAiError;
@@ -34,6 +35,8 @@ impl ChatsCreateCommand {
                 logit_bias,
                 min_available_tokens,
                 max_supported_tokens,
+                functions,
+                function_call,
             } => {
                 let api_key = cli
                     .openai_api_key
@@ -50,17 +53,17 @@ impl ChatsCreateCommand {
 
                 let message = match prompt {
                     Some(s) if s == "-" => ChatMessage {
-                        content: read_from_stdin()?,
+                        content: Some(read_from_stdin()?),
                         role: "user".to_owned(),
                         ..Default::default()
                     },
                     Some(s) => ChatMessage {
-                        content: s.to_owned(),
+                        content: Some(s.to_owned()),
                         role: "user".to_owned(),
                         ..Default::default()
                     },
                     None => ChatMessage {
-                        content: "".to_owned(),
+                        content: Some("".to_owned()),
                         role: "user".to_owned(),
                         ..Default::default()
                     },
@@ -75,7 +78,7 @@ impl ChatsCreateCommand {
                     api.messages.insert(
                         0,
                         ChatMessage {
-                            content: s.to_owned(),
+                            content: Some(s.to_owned()),
                             role: "system".to_owned(),
                             ..Default::default()
                         },
@@ -84,6 +87,26 @@ impl ChatsCreateCommand {
 
                 if let Some(m) = model {
                     api.model = m.to_owned();
+                }
+
+                if let Some(f) = functions {
+                    api.functions = match from_str(f) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            log::error!("Error parsing functions: {}", e);
+                            return Err(Box::new(e));
+                        }
+                    };
+                }
+
+                if let Some(f) = function_call {
+                    api.function_call = match from_str(f) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            log::error!("Error parsing function_call: {}", e);
+                            return Err(Box::new(e));
+                        }
+                    };
                 }
 
                 log::debug!("Using model: {:?}", api.model);
@@ -125,7 +148,11 @@ impl CommandResult for Chat {
     fn print_raw<W: std::io::Write>(&self, mut w: W) -> Result<(), Self::ResultError> {
         match self.choices.first() {
             Some(choice) => {
-                write!(w, "{}", choice.message.content)?;
+                if let Some(content) = &choice.message.content {
+                    writeln!(w, "{}", content)?;
+                } else if let Some(fc) = &choice.message.function_call {
+                    writeln!(w, "{}", fc.arguments)?;
+                }
                 Ok(())
             }
             None => Err(CommandError::from(OpenAiError::NoChoices)),

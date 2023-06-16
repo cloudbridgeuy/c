@@ -324,6 +324,16 @@ pub enum ChatsCommands {
         /// The maximum number of tokens supporte by the model.
         #[arg(long, default_value = "4096")]
         max_supported_tokens: Option<u32>,
+        /// A list of functions the model may generate JSON inputs for, provided as JSON.
+        #[arg(long)]
+        functions: Option<String>,
+        /// Controls how the model responds to function calls. "none" means the model does not call
+        /// a function, and responds to the end-user. "auto" means the model can pick between an
+        /// end-user or calling a function. Specifying a particular function via `{"name":
+        /// "my_function" }` forces the model to call that function. "none" is the default when no
+        /// functions are present. "auto" is the default if functions are present.
+        #[arg(long)]
+        function_call: Option<String>,
     },
 }
 
