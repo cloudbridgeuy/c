@@ -9,6 +9,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+proc-macro = []
+
 [lib]
 name = "openai"
 path = "src/lib.rs"
@@ -24,3 +27,5 @@ serde_either = "0.2.1"          # Simple set to enums to deserialize and seriali
 serde_json = "1.0.93"
 serde_yaml = "0.9.19"                # YAML data format for Serde
 tokio = { version = "1.27.0", features = ["full"] }                   # An event-driven, non-blocking I/O platform for writing asynchronous I/O backed applications.…
+reqwest-eventsource = "0.4.0"
+futures = "0.3.28"

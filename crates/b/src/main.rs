@@ -41,7 +41,7 @@ async fn main() -> Result<(), CommandError> {
         }
     };
 
-    let spinner = Spinner::new(cli.silent);
+    let spinner = Spinner::new(cli.silent || cli.stream);
 
     let result = match command.call().await {
         Ok(result) => {
@@ -62,7 +62,9 @@ async fn main() -> Result<(), CommandError> {
             result.print_yaml(std::io::stdout())?;
         }
         Output::Raw => {
-            result.print_raw(std::io::stdout())?;
+            if !cli.stream {
+                result.print_raw(std::io::stdout())?;
+            }
         }
     }
 

@@ -1,10 +1,10 @@
 use std::time::Duration;
 
+use crate::error;
 use log;
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::{Client as ReqwestClient, Response as ReqwestResponse};
-
-use crate::error;
+use reqwest_eventsource::EventSource;
 
 #[derive(Clone, Debug, Default)]
 pub struct Client {
@@ -116,6 +116,31 @@ impl Client {
                     body: e.to_string(),
                 })
             }
+        }
+    }
+
+    /// Makes a POST request to the OpenAi API that returns a SSE stream.
+    pub async fn post_stream(
+        &self,
+        endpoint: &str,
+        body: String,
+    ) -> Result<EventSource, error::OpenAi> {
+        let mut url = self.base_url.clone();
+        url.push_str(endpoint);
+
+        log::debug!("POST: {}", url);
+
+        let builder = self
+            .reqwest
+            .post(url)
+            .headers(self.headers.clone())
+            .body(body);
+
+        match EventSource::new(builder) {
+            Ok(x) => Ok(x),
+            Err(e) => Err(error::OpenAi::RequestError {
+                body: e.to_string(),
+            }),
         }
     }
 

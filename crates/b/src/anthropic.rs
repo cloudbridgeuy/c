@@ -20,7 +20,6 @@ impl CompleteCreateCommand {
                 model,
                 max_tokens_to_sample,
                 stop_sequences,
-                stream,
                 temperature,
                 top_k,
                 top_p,
@@ -66,10 +65,11 @@ impl CompleteCreateCommand {
 
                 max_tokens_to_sample.map(|s| api.max_tokens_to_sample = Some(s));
                 max_supported_tokens.map(|s| api.max_supported_tokens = Some(s));
-                stream.map(|s| api.stream = Some(s));
                 temperature.map(|s| api.set_temperature(s));
                 top_k.map(|s| api.set_top_k(s));
                 top_p.map(|s| api.set_top_p(s));
+
+                api.stream = Some(cli.stream);
 
                 if let Some(s) = stop_sequences {
                     api.stop_sequences = Some(s.to_vec());

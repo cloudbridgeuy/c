@@ -27,7 +27,6 @@ impl ChatsCreateCommand {
                 temperature,
                 top_p,
                 n,
-                stream,
                 stop,
                 presence_penalty,
                 frequency_penalty,
@@ -113,13 +112,14 @@ impl ChatsCreateCommand {
 
                 max_tokens.map(|s| api.max_tokens = Some(s));
                 n.map(|s| api.n = Some(s));
-                stream.map(|s| api.stream = Some(s));
                 temperature.map(|s| api.set_temperature(s));
                 top_p.map(|s| api.set_top_p(s));
                 presence_penalty.map(|s| api.set_presence_penalty(s));
                 frequency_penalty.map(|s| api.set_frequency_penalty(s));
                 min_available_tokens.map(|s| api.min_available_tokens = Some(s));
                 max_supported_tokens.map(|s| api.max_supported_tokens = Some(s));
+
+                api.stream = Some(cli.stream);
 
                 if &api.user != user {
                     api.user = user.to_owned();

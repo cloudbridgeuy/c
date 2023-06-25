@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs::{create_dir_all, File};
 use std::io::{BufReader, BufWriter};
 
+use futures::StreamExt;
 use gpt_tokenizer::Default as DefaultTokenizer;
 use log;
 use serde::{Deserialize, Serialize};
@@ -78,10 +79,36 @@ pub struct Chat {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+pub struct Chunk {
+    pub id: String,
+    pub object: String,
+    pub created: u32,
+    pub model: String,
+    pub choices: Vec<ChunkChoice>,
+    #[serde(default)]
+    pub finish_reason: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ChunkChoice {
+    pub index: u32,
+    pub delta: Option<ChunkMessage>,
+    #[serde(default)]
+    pub finish_reason: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ChunkMessage {
+    pub role: Option<String>,
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ChatChoice {
     pub index: u32,
     pub message: ChatMessage,
-    pub finish_reason: String,
+    #[serde(default)]
+    pub finish_reason: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -280,46 +307,129 @@ impl ChatsApi {
 
         log::debug!("Request: {}", request);
 
-        let body = match self.client.post("/chat/completions", request).await {
-            Ok(response) => match response.text().await {
-                Ok(text) => text,
+        if let Some(true) = &self.stream {
+            log::debug!("Streaming completion");
+            let mut event_source = match self.client.post_stream("/chat/completions", request).await
+            {
+                Ok(response) => response,
                 Err(e) => {
                     return Err(error::OpenAi::RequestError {
                         body: e.to_string(),
                     })
                 }
-            },
-            Err(e) => {
-                return Err(error::OpenAi::RequestError {
-                    body: e.to_string(),
-                })
+            };
+
+            let mut acc: String = String::new();
+            while let Some(ev) = event_source.next().await {
+                match ev {
+                    Err(e) => {
+                        return Err(error::OpenAi::RequestError {
+                            body: e.to_string(),
+                        })
+                    }
+                    Ok(event) => match event {
+                        reqwest_eventsource::Event::Open { .. } => {}
+                        reqwest_eventsource::Event::Message(message) => {
+                            log::debug!("Message: {:?}", message);
+
+                            if message.data == "[DONE]" {
+                                break;
+                            }
+
+                            let response: Chunk = match serde_json::from_str(&message.data) {
+                                Err(e) => {
+                                    return Err(error::OpenAi::SerializationError {
+                                        body: e.to_string(),
+                                    })
+                                }
+                                Ok(output) => output,
+                            };
+
+                            log::debug!("Response: {:?}", response);
+
+                            if let Some(choice) = response.choices.get(0) {
+                                if let Some(delta) = &choice.delta {
+                                    if let Some(content) = &delta.content {
+                                        print!("{}", content);
+                                        acc.push_str(content);
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
             }
-        };
 
-        log::debug!("Response: {}", body);
+            log::debug!("Returning acc: {}", acc);
 
-        let body: Chat = match serde_json::from_str(&body) {
-            Ok(body) => body,
-            Err(e) => {
-                return Err(error::OpenAi::RequestError {
-                    body: e.to_string(),
-                })
+            log::debug!("Checking for session, {:?}", session);
+            if let Some(session) = session {
+                let session_file = get_sessions_file(&session)?;
+                api.session = Some(session);
+                api.min_available_tokens = Some(min_available_tokens);
+                api.max_supported_tokens = Some(max_supported_tokens);
+                api.messages = messages;
+                api.messages.push(ChatMessage {
+                    content: Some(acc.clone()),
+                    role: "assistant".to_string(),
+                    ..Default::default()
+                });
+                serialize_sessions_file(&session_file, api)?;
             }
-        };
 
-        log::debug!("Checking for session, {:?}", session);
-        if let Some(session) = session {
-            let session_file = get_sessions_file(&session)?;
-            api.session = Some(session);
-            api.min_available_tokens = Some(min_available_tokens);
-            api.max_supported_tokens = Some(max_supported_tokens);
-            api.messages = messages;
-            api.messages
-                .push(body.choices.first().unwrap().message.clone());
-            serialize_sessions_file(&session_file, api)?;
+            Ok(Chat {
+                choices: vec![ChatChoice {
+                    message: ChatMessage {
+                        content: Some(acc.clone()),
+                        role: "assistant".to_string(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })
+        } else {
+            let body = match self.client.post("/chat/completions", request).await {
+                Ok(response) => match response.text().await {
+                    Ok(text) => text,
+                    Err(e) => {
+                        return Err(error::OpenAi::RequestError {
+                            body: e.to_string(),
+                        })
+                    }
+                },
+                Err(e) => {
+                    return Err(error::OpenAi::RequestError {
+                        body: e.to_string(),
+                    })
+                }
+            };
+
+            log::debug!("Response: {}", body);
+
+            let body: Chat = match serde_json::from_str(&body) {
+                Ok(body) => body,
+                Err(e) => {
+                    return Err(error::OpenAi::RequestError {
+                        body: e.to_string(),
+                    })
+                }
+            };
+
+            log::debug!("Checking for session, {:?}", session);
+            if let Some(session) = session {
+                let session_file = get_sessions_file(&session)?;
+                api.session = Some(session);
+                api.min_available_tokens = Some(min_available_tokens);
+                api.max_supported_tokens = Some(max_supported_tokens);
+                api.messages = messages;
+                api.messages
+                    .push(body.choices.first().unwrap().message.clone());
+                serialize_sessions_file(&session_file, api)?;
+            }
+
+            Ok(body)
         }
-
-        Ok(body)
     }
 }
 

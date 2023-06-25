@@ -26,7 +26,6 @@ impl CompletionsCreateCommand {
                 temperature,
                 top_p,
                 n,
-                stream,
                 logprobs,
                 echo,
                 stop,
@@ -80,7 +79,6 @@ impl CompletionsCreateCommand {
 
                 echo.map(|s| api.set_echo(s));
                 suffix.as_ref().map(|s| api.set_suffix(s.to_string()));
-                stream.map(|s| api.set_stream(s));
                 logprobs.map(|s| api.set_logprobs(s));
                 stop.as_ref()
                     .map(|s| api.set_stop(SingleOrVec::Vec(s.to_vec())));
@@ -89,6 +87,8 @@ impl CompletionsCreateCommand {
                 best_of.map(|s| api.set_best_of(s));
                 temperature.map(|s| api.set_temperature(s));
                 top_p.map(|s| api.set_top_p(s));
+
+                _ = api.set_stream(cli.stream);
 
                 Ok(Self { api })
             }
