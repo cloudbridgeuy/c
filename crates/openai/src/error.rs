@@ -19,6 +19,7 @@ custom_error! {pub OpenAi
     NoSession = "no session",
     RequestError{body: String} = "request error: {body}",
     SerializationError{body: String} = "serialization error: {body}",
+    StreamError = "stream error",
     TrimError = "could not find a message to trim",
     UknownError = "unknown error",
 }
