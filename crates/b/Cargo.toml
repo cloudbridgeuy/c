@@ -32,4 +32,5 @@ async-trait = "0.1.68"              # Type erasure for async trait methods
 tokio = { version = "1.27.0", features = ["full"] }                   # An event-driven, non-blocking I/O platform for writing asynchronous I/O backed applications.…
 indicatif = "0.17.3"           # A progress bar and cli reporting library for Rust
 anyhow = "1.0.71"                                   # Flexible concrete Error type built on std::error::Error
+tokio-stream = "0.1.14"
 

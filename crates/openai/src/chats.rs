@@ -277,10 +277,6 @@ impl ChatsApi {
     pub async fn create_stream(
         &self,
     ) -> Result<impl Stream<Item = Result<Chunk, error::OpenAi>>, error::OpenAi> {
-        if Some(true) == self.stream {
-            return Err(error::OpenAi::InvalidStream);
-        }
-
         let mut api = &mut (*self).clone();
 
         let min_available_tokens = api.min_available_tokens.unwrap_or(750);

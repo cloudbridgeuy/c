@@ -3,9 +3,21 @@ use std::time::Duration;
 
 use indicatif::{ProgressBar, ProgressStyle};
 
+/// Spinner state
+enum SpinnerState {
+    /// Spinner is running
+    Running,
+    /// Spinner is stopped
+    Stopped,
+    /// Spinner is silent
+    Silent,
+    /// Spinner is errored
+    Errored,
+}
+
 pub struct Spinner {
     progress_bar: ProgressBar,
-    silent: bool,
+    state: SpinnerState,
 }
 
 impl Spinner {
@@ -15,7 +27,7 @@ impl Spinner {
             ProgressBar::hidden()
         } else {
             let progress_bar = ProgressBar::new_spinner();
-            progress_bar.enable_steady_tick(Duration::from_millis(120));
+            progress_bar.enable_steady_tick(Duration::from_millis(100));
             progress_bar.set_style(
                 ProgressStyle::with_template("{spinner:.magenta} {msg}")
                     .unwrap()
@@ -24,22 +36,36 @@ impl Spinner {
             progress_bar
         };
         Self {
-            silent,
+            state: if silent {
+                SpinnerState::Silent
+            } else {
+                SpinnerState::Running
+            },
             progress_bar,
         }
     }
 
+    pub fn print(&mut self, msg: &str) {
+        if let SpinnerState::Running = self.state {
+            self.progress_bar.suspend(|| {
+                print!("{}", msg);
+            });
+        }
+    }
+
     /// Stops the spinner successfully
-    pub fn ok(&self) {
-        if !self.silent {
-            self.progress_bar.finish_and_clear();
+    pub fn ok(&mut self) {
+        if let SpinnerState::Running = self.state {
+            self.state = SpinnerState::Stopped;
+            self.progress_bar.finish_and_clear()
         }
     }
 
     /// Stops the spinner with an error
-    pub fn err(&self, msg: &str) {
-        if !self.silent {
+    pub fn err(&mut self, msg: &str) {
+        if let SpinnerState::Running = self.state {
             self.progress_bar.abandon_with_message(msg.to_string());
+            self.state = SpinnerState::Errored;
         }
     }
 }

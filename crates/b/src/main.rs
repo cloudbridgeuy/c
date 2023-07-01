@@ -41,7 +41,7 @@ async fn main() -> Result<(), CommandError> {
         }
     };
 
-    let spinner = Spinner::new(cli.silent || cli.stream);
+    let mut spinner = Spinner::new(cli.silent || cli.stream);
 
     let result = match command.call().await {
         Ok(result) => {

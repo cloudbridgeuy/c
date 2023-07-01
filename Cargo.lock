@@ -114,6 +114,7 @@ dependencies = [
  "serde_json",
  "serde_yaml 0.9.19",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]

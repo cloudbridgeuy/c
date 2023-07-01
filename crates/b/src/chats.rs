@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::error::Error;
+use tokio_stream::StreamExt;
 
 use async_trait::async_trait;
 use serde_either::SingleOrVec;
@@ -8,7 +9,7 @@ use serde_json::from_str;
 use openai::chats::{Chat, ChatMessage, ChatsApi};
 use openai::error::OpenAi as OpenAiError;
 
-use crate::utils::read_from_stdin;
+use crate::utils::{read_from_stdin, Spinner};
 use crate::{ChatsCommands, Cli, CommandError, CommandHandle, CommandResult};
 
 pub struct ChatsCreateCommand {
@@ -165,6 +166,49 @@ impl CommandHandle<Chat> for ChatsCreateCommand {
     type CallError = OpenAiError;
 
     async fn call(&self) -> Result<Chat, OpenAiError> {
-        self.api.create().await
+        let mut spinner = Spinner::new(false);
+
+        log::debug!("Stream is: {:?}", self.api.stream);
+
+        if Some(true) == self.api.stream {
+            log::debug!("Creating stream");
+
+            let chunks = match self.api.create_stream().await {
+                Ok(chunks) => chunks,
+                Err(e) => {
+                    log::error!("Error creating stream: {}", e);
+                    return Err(OpenAiError::StreamError);
+                }
+            };
+
+            tokio::pin!(chunks);
+
+            while let Some(chunk) = chunks.next().await {
+                if chunk.is_err() {
+                    log::error!("Error reading stream");
+                    spinner.err("Error reading stream");
+                    return Err(OpenAiError::StreamError);
+                }
+
+                // spinner.ok();
+
+                let chunk = chunk.unwrap();
+
+                if let Some(choice) = chunk.choices.get(0) {
+                    if let Some(delta) = &choice.delta {
+                        if let Some(content) = &delta.content {
+                            // print!("{}", content);
+                            spinner.print(content);
+                        }
+                    }
+                }
+            }
+
+            spinner.ok();
+            Ok(openai::chats::Chat::default())
+        } else {
+            log::debug!("Creating chat");
+            self.api.create().await
+        }
     }
 }
