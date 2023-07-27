@@ -1,6 +1,5 @@
 use anyhow::Context;
 use anyhow::Result;
-use log;
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::{Client as ReqwestClient, Response as ReqwestResponse};
 use std::time::Duration;
@@ -36,7 +35,7 @@ impl Client {
             .build()
             .context("can't create reqwest client")?;
 
-        log::debug!("created reqwest client");
+        tracing::event!(tracing::Level::INFO, "Creating a new API client...");
 
         let headers = create_headers(api_key).context("can't create headers")?;
 
@@ -66,7 +65,7 @@ impl Client {
         let mut url = self.base_url.clone();
         url.push_str(endpoint);
 
-        log::debug!("reqwest GET: {}", url);
+        tracing::event!(tracing::Level::INFO, "GET {}", url);
 
         self.reqwest
             .get(url)
@@ -81,7 +80,7 @@ impl Client {
         let mut url = self.base_url.clone();
         url.push_str(endpoint);
 
-        log::debug!("reqwest POST: {}", url);
+        tracing::event!(tracing::Level::INFO, "POST {}", url);
 
         self.reqwest
             .post(url)

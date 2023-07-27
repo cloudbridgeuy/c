@@ -3,7 +3,6 @@ use std::io::{BufReader, BufWriter};
 
 use anyhow::{anyhow, Result};
 use fs::{directory_exists, file_exists, get_home_directory};
-use log;
 use serde::{self, Deserialize, Serialize};
 
 use crate::client::Client;
@@ -71,9 +70,9 @@ pub struct Response {
 impl Api {
     /// Creates a new Complete API instance.
     pub fn new(api_key: String) -> Result<Self> {
-        let client = Client::new(api_key)?;
+        tracing::event!(tracing::Level::INFO, "creating anthropic client");
 
-        log::debug!("created client");
+        let client = Client::new(api_key)?;
 
         Ok(Self {
             client,
@@ -85,13 +84,21 @@ impl Api {
     pub fn new_with_session(api_key: String, session: String) -> Result<Self> {
         let session_file = get_session_file(&session)?;
 
+        tracing::event!(
+            tracing::Level::INFO,
+            "deserializing session file {}",
+            session
+        );
+
         let mut complete_api = deserialize_sessions_file(&session_file)?;
 
-        log::debug!("deserialized session file");
+        tracing::event!(
+            tracing::Level::INFO,
+            "creating anthropic client with session {}",
+            session
+        );
 
         complete_api.client = Client::new(api_key)?;
-
-        log::debug!("created client");
 
         Ok(complete_api)
     }
@@ -113,13 +120,17 @@ impl Api {
 
     /// Sets the temperature value
     pub fn set_temperature(&mut self, temperature: f32) -> Result<&mut Self> {
+        tracing::event!(
+            tracing::Level::INFO,
+            "seting temperature to {}",
+            temperature
+        );
+
         if !(0.0..=1.0).contains(&temperature) {
             return Err(anyhow!("temperature must be between 0.0 and 1.0"));
         }
 
         self.temperature = Some(temperature);
-
-        log::debug!("set temperature: {}", temperature);
 
         Ok(self)
     }
@@ -131,13 +142,13 @@ impl Api {
 
     /// Sets the top_k value
     pub fn set_top_k(&mut self, top_k: f32) -> Result<&mut Self> {
+        tracing::event!(tracing::Level::INFO, "seting top_k to {}", top_k);
+
         if top_k != -1.0 && top_k < 0.0 {
             return Err(anyhow!("top_k must be -1 or greater than zero"));
         }
 
         self.top_k = Some(top_k);
-
-        log::debug!("set top_k: {}", top_k);
 
         Ok(self)
     }
@@ -149,19 +160,21 @@ impl Api {
 
     /// Sets the top_p value
     pub fn set_top_p(&mut self, top_p: f32) -> Result<&mut Self> {
+        tracing::event!(tracing::Level::INFO, "seting top_p to {}", top_p);
+
         if top_p != -1.0 && top_p < 0.0 {
             return Err(anyhow!("top_p must be -1 or greater than zero"));
         }
 
         self.top_p = Some(top_p);
 
-        log::debug!("set top_p: {}", top_p);
-
         Ok(self)
     }
 
     /// Creates a completion for the given prompt.
     pub async fn create(&self) -> Result<Response> {
+        tracing::event!(tracing::Level::INFO, "crearing a new completion");
+
         let mut api = &mut (*self).clone();
 
         let max_tokens_to_sample = api.max_tokens_to_sample.unwrap_or(750);
@@ -169,41 +182,36 @@ impl Api {
         let session = api.session.clone();
         let mut prompt = prepare_prompt(api.prompt.clone());
 
-        log::debug!("max_tokens_to_sample: {}", max_tokens_to_sample);
-        log::debug!("max_supported_tokens: {}", max_supported_tokens);
-        log::debug!("session: {:?}", session);
-        log::debug!("prompt: {}", prompt);
-
         api.max_supported_tokens = None;
         api.session = None;
 
         let mut max = max_supported_tokens - max_tokens_to_sample;
 
         if let Some(system) = &api.system {
-            log::debug!("system: {:?}", system);
+            tracing::event!(tracing::Level::INFO, "system: {:?}", system);
             api.prompt = prepare_prompt(format!("{}\n{}", system, prompt));
             max -= token_length(system.to_string()) as u32
         }
 
         api.prompt = trim_prompt(api.prompt.to_string(), max)?;
 
-        log::debug!("trimmed prompt: {}", api.prompt);
+        tracing::event!(tracing::Level::INFO, "trimmed prompt: {}", api.prompt);
 
         let request = serde_json::to_string(api)?;
 
-        log::debug!("request: {}", request);
+        tracing::event!(tracing::Level::INFO, "request: {}", request);
 
         let response = self.client.post("/v1/complete", request).await?;
 
-        log::debug!("response: {:?}", response);
+        tracing::event!(tracing::Level::INFO, "response: {:?}", response);
 
         let body = response.text().await?;
 
-        log::debug!("body: {:?}", body);
+        tracing::event!(tracing::Level::INFO, "body: {:?}", body);
 
         let response: Response = serde_json::from_str(&body)?;
 
-        log::debug!("checking for session: {:?}", session);
+        tracing::event!(tracing::Level::INFO, "checking for session: {:?}", session);
         if let Some(session) = session {
             let session_file = get_session_file(&session)?;
 
@@ -222,25 +230,33 @@ impl Api {
 }
 
 pub fn get_session_file(session: &str) -> Result<String> {
-    log::debug!("getting sessions file: {}", session);
+    tracing::event!(tracing::Level::INFO, "getting sessions file: {}", session);
 
     let home_directory = get_home_directory();
 
-    log::debug!("home directory: {}", home_directory);
+    tracing::event!(tracing::Level::INFO, "home directory: {}", home_directory);
 
     // Create the HOME directory if it doesn't exist.
     if !directory_exists(&home_directory) {
-        log::debug!("creating home directory: {}", home_directory);
+        tracing::event!(
+            tracing::Level::INFO,
+            "creating home directory: {}",
+            home_directory
+        );
 
         create_dir_all(&home_directory)?;
     }
 
     let sessions_file = format!("{}/{}", home_directory, session);
 
-    log::debug!("sessions file: {}", sessions_file);
+    tracing::event!(tracing::Level::INFO, "sessions file: {}", sessions_file);
 
     if !file_exists(&sessions_file) {
-        log::debug!("creating sessions file: {}", sessions_file);
+        tracing::event!(
+            tracing::Level::INFO,
+            "creating sessions file: {}",
+            sessions_file
+        );
 
         File::create(&sessions_file)?;
 
@@ -250,14 +266,22 @@ pub fn get_session_file(session: &str) -> Result<String> {
         serialize_sessions_file(&sessions_file, &complete_api)?;
     }
 
-    log::debug!("returning sessions file: {}", sessions_file);
+    tracing::event!(
+        tracing::Level::INFO,
+        "returning sessions file: {}",
+        sessions_file
+    );
 
     Ok(sessions_file)
 }
 
 /// Deserialize the sessions file
 pub fn deserialize_sessions_file(sessions_file: &str) -> Result<Api> {
-    log::debug!("deserializing sessions file: {}", sessions_file);
+    tracing::event!(
+        tracing::Level::INFO,
+        "deserializing sessions file: {}",
+        sessions_file
+    );
 
     let file = File::open(sessions_file)?;
     let reader = BufReader::new(file);
@@ -268,7 +292,11 @@ pub fn deserialize_sessions_file(sessions_file: &str) -> Result<Api> {
 
 /// Serialize the sessions file
 pub fn serialize_sessions_file(session_file: &str, complete_api: &Api) -> Result<()> {
-    log::debug!("serializing sessions file: {}", session_file);
+    tracing::event!(
+        tracing::Level::INFO,
+        "serializing sessions file: {}",
+        session_file
+    );
 
     let file = File::create(session_file)?;
     let writer = BufWriter::new(file);
