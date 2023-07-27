@@ -1,0 +1,21 @@
+[package]
+name = "spinner"
+version = "0.0.0"
+homepage = "https://github.com/cloudbridgeuy/a"
+description = "Spinner component to use in cli applications"
+autobins = false
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "spinner"
+path = "src/lib.rs"
+
+[dependencies]
+indicatif = "0.17.5"
+tracing = { version = "0.1.37", features = ["max_level_debug", "release_max_level_warn"] }
+tokio = { version = "1.27.0", features = ["full"] }
+tokio-stream = "0.1.14"
+rand = "0.8.5"

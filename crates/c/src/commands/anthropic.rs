@@ -85,14 +85,21 @@ pub struct Options {
     /// Wether to incrementally stream the response using SSE.
     #[clap(long)]
     stream: bool,
+    /// Response output format
+    #[clap(short, long, default_value = "raw")]
+    format: Option<crate::Output>,
 }
 
 pub async fn run(options: Options) -> Result<()> {
     let mut api = create_api(&options)?;
-
     api = update_api(api, &options)?;
 
-    dbg!(&api);
+    let spinner_arc = spinner::Spinner::new_with_checky_messages(5000);
+    let response = api.create().await?;
+    let mut spinner = spinner_arc.lock().await;
+    spinner.stop();
+
+    print_output(&options, &response)?;
 
     Ok(())
 }
@@ -113,7 +120,7 @@ fn update_api(
 
     if let Some(prompt) = options.prompt.as_ref() {
         if !prompt.is_empty() {
-            api.prompt.push_str("\n\nHuman");
+            api.prompt.push_str("\n\nHuman: ");
 
             if prompt == "-" {
                 tracing::event!(tracing::Level::INFO, "Reading prompt from stdin...");
@@ -200,10 +207,7 @@ fn create_api(options: &Options) -> Result<anthropic::complete::Api> {
             )
         })?)
     } else {
-        tracing::event!(
-            tracing::Level::INFO,
-            "Creating a new API client with session...",
-        );
+        tracing::event!(tracing::Level::INFO, "Creating a new API client...",);
         Ok(
             anthropic::complete::Api::new(options.anthropic_api_key.to_string()).or_else(|_| {
                 color_eyre::eyre::bail!(
@@ -212,4 +216,30 @@ fn create_api(options: &Options) -> Result<anthropic::complete::Api> {
             })?,
         )
     }
+}
+
+/// Prints the Response output according to the user options.
+fn print_output(options: &Options, response: &anthropic::complete::Response) -> Result<()> {
+    if options.stream {
+        return Ok(());
+    }
+
+    match options.format {
+        Some(crate::Output::Raw) => {
+            println!("{}", response.completion);
+        }
+        Some(crate::Output::Json) => {
+            let json = serde_json::to_string_pretty(&response)?;
+            println!("{}", json);
+        }
+        Some(crate::Output::Yaml) => {
+            let json = serde_yaml::to_string(&response)?;
+            println!("{}", json);
+        }
+        None => {
+            color_eyre::eyre::bail!("No output format specified");
+        }
+    }
+
+    Ok(())
 }

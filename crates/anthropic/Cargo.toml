@@ -23,8 +23,9 @@ reqwest = { version = "0.11.16", features = ["json"] }
 serde = { version = "1.0.152", features = ["derive"] }
 serde_either = "0.2.1"          # Simple set to enums to deserialize and serialize data that can either be string, struct or vec
 serde_json = "1.0.93"
-serde_yaml = "0.9.19"                # YAML data format for Serde
+serde_yaml = "0.9.25"
 anyhow = "1.0.71"                                   # Flexible concrete Error type built on std::error::Error
 tokio = { version = "1.27.0", features = ["full"] }                   # An event-driven, non-blocking I/O platform for writing asynchronous I/O backed applications.…
 tracing = "0.1.37"
 color-eyre = "0.6.2"
+tokio-stream = "0.1.14"

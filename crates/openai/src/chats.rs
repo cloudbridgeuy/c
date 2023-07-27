@@ -1,20 +1,21 @@
 use std::collections::HashMap;
 use std::fs::{create_dir_all, File};
 use std::io::{BufReader, BufWriter};
+use std::sync::Arc;
 
-use crate::client::Client;
-use crate::error;
-use crate::utils::{directory_exists, file_exists, get_home_directory};
 use gpt_tokenizer::Default as DefaultTokenizer;
 use log;
 use serde::{Deserialize, Serialize};
 use serde_either::SingleOrVec;
 use serde_json::Value;
-use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::{Stream, StreamExt};
+
+use crate::client::Client;
+use crate::error;
+use crate::utils::{directory_exists, file_exists, get_home_directory};
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct ChatsApi {

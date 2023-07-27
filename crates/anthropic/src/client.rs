@@ -34,11 +34,8 @@ impl Client {
             .build()
             .context("can't create reqwest client")?;
 
-        tracing::event!(tracing::Level::INFO, "Creating a new API client...");
-
+        tracing::event!(tracing::Level::INFO, "Creating API client headers...");
         let headers = create_headers(api_key).context("can't create headers")?;
-
-        log::debug!("created headers");
 
         Ok(Self {
             reqwest,

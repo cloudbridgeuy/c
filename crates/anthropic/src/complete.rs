@@ -17,6 +17,26 @@ pub enum Model {
     ClaudeInstantV1_100k,
 }
 
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct Chunk {
+    event: String,
+    data: ChunkData,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct ChunkData {
+    completion: Option<String>,
+    stop_reason: Option<String>,
+    model: Option<String>,
+    error: Option<ChunkError>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct ChunkError {
+    _type: String,
+    message: String,
+}
+
 impl Model {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -57,6 +77,25 @@ pub struct Api {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct ChatCreateBody {
+    pub model: Model,
+    pub prompt: String,
+    pub max_tokens_to_sample: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_sequences: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_k: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<Metadata>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Metadata {
     pub user_id: Option<String>,
 }
@@ -70,8 +109,6 @@ pub struct Response {
 impl Api {
     /// Creates a new Complete API instance.
     pub fn new(api_key: String) -> Result<Self> {
-        tracing::event!(tracing::Level::INFO, "creating anthropic client");
-
         let client = Client::new(api_key)?;
 
         Ok(Self {
@@ -80,13 +117,28 @@ impl Api {
         })
     }
 
+    /// Creates a ChatCreateBody from the API body.
+    pub fn create_chat_body(&self) -> ChatCreateBody {
+        ChatCreateBody {
+            max_tokens_to_sample: self.max_tokens_to_sample,
+            metadata: self.metadata.clone(),
+            model: self.model,
+            prompt: self.prompt.clone(),
+            stop_sequences: self.stop_sequences.clone(),
+            stream: self.stream,
+            temperature: self.temperature,
+            top_k: self.top_k,
+            top_p: self.top_p,
+        }
+    }
+
     /// Creates a new Complete API instance by loading options from a sessions file.
     pub fn new_with_session(api_key: String, session: String) -> Result<Self> {
         let session_file = get_session_file(&session)?;
 
         tracing::event!(
             tracing::Level::INFO,
-            "deserializing session file {}",
+            "Deserializing session file {}",
             session
         );
 
@@ -94,7 +146,7 @@ impl Api {
 
         tracing::event!(
             tracing::Level::INFO,
-            "creating anthropic client with session {}",
+            "Creating anthropic client with session {}",
             session
         );
 
@@ -171,58 +223,52 @@ impl Api {
         Ok(self)
     }
 
-    /// Creates a completion for the given prompt.
-    pub async fn create(&self) -> Result<Response> {
-        tracing::event!(tracing::Level::INFO, "crearing a new completion");
+    /// Creates a new chat session with the given prompt, streaming the result.
+    // pub async fn create_stream(&self) -> Result<impl Stream<Item = Result<Chunk>>> {
+    pub async fn create(&mut self) -> Result<Response> {
+        tracing::event!(tracing::Level::INFO, "Creating new streaming chat session");
+        let mut prompt = self.prompt.clone();
 
-        let mut api = &mut (*self).clone();
+        let mut max =
+            self.max_supported_tokens.unwrap_or(4096) - self.max_tokens_to_sample.unwrap_or(750);
 
-        let max_tokens_to_sample = api.max_tokens_to_sample.unwrap_or(750);
-        let max_supported_tokens = api.max_supported_tokens.unwrap_or(4096);
-        let session = api.session.clone();
-        let mut prompt = prepare_prompt(api.prompt.clone());
-
-        api.max_supported_tokens = None;
-        api.session = None;
-
-        let mut max = max_supported_tokens - max_tokens_to_sample;
-
-        if let Some(system) = &api.system {
-            tracing::event!(tracing::Level::INFO, "system: {:?}", system);
-            api.prompt = prepare_prompt(format!("{}\n{}", system, prompt));
-            max -= token_length(system.to_string()) as u32
+        if self.system.is_some() {
+            tracing::event!(tracing::Level::INFO, "system: {:?}", self.system);
+            prompt = prepare_prompt(format!("{}\n{}", self.system.as_ref().unwrap(), prompt));
+            max -= token_length(self.system.as_ref().unwrap().to_string()) as u32;
         }
 
-        api.prompt = trim_prompt(api.prompt.to_string(), max)?;
+        tracing::event!(tracing::Level::INFO, "Trimming prompt...");
+        prompt = trim_prompt(prompt, max)?;
+        tracing::event!(tracing::Level::INFO, "prompt: {}", prompt);
 
-        tracing::event!(tracing::Level::INFO, "trimmed prompt: {}", api.prompt);
-
-        let request = serde_json::to_string(api)?;
-
+        tracing::event!(tracing::Level::INFO, "Creating request...");
+        let mut body = self.create_chat_body();
+        body.prompt = prompt;
+        let request = serde_json::to_string(&body)?;
         tracing::event!(tracing::Level::INFO, "request: {}", request);
 
+        tracing::event!(tracing::Level::INFO, "Sending request...");
         let response = self.client.post("/v1/complete", request).await?;
-
         tracing::event!(tracing::Level::INFO, "response: {:?}", response);
 
+        tracing::event!(tracing::Level::INFO, "Getting response body...");
         let body = response.text().await?;
-
         tracing::event!(tracing::Level::INFO, "body: {:?}", body);
 
+        tracing::event!(tracing::Level::INFO, "Deserializing response body...");
         let response: Response = serde_json::from_str(&body)?;
+        tracing::event!(tracing::Level::INFO, "response: {:?}", response);
 
-        tracing::event!(tracing::Level::INFO, "checking for session: {:?}", session);
-        if let Some(session) = session {
-            let session_file = get_session_file(&session)?;
+        if let Some(session) = &self.session {
+            tracing::event!(tracing::Level::INFO, "Getting session file: {:?}", session);
+            let session_file = get_session_file(session)?;
 
-            api.session = Some(session);
-            api.max_tokens_to_sample = Some(max_tokens_to_sample);
-            api.max_supported_tokens = Some(max_supported_tokens);
+            tracing::event!(tracing::Level::INFO, "Updating session prompt");
+            self.prompt.push_str(&response.completion);
 
-            prompt.push_str(&response.completion);
-            api.prompt = prompt;
-
-            serialize_sessions_file(&session_file, api)?;
+            tracing::event!(tracing::Level::INFO, "Serializing session file");
+            serialize_sessions_file(&session_file, self)?;
         }
 
         Ok(response)
@@ -230,78 +276,64 @@ impl Api {
 }
 
 pub fn get_session_file(session: &str) -> Result<String> {
-    tracing::event!(tracing::Level::INFO, "getting sessions file: {}", session);
-
+    tracing::event!(tracing::Level::INFO, "Getting home directory...");
     let home_directory = get_home_directory();
-
     tracing::event!(tracing::Level::INFO, "home directory: {}", home_directory);
 
     // Create the HOME directory if it doesn't exist.
     if !directory_exists(&home_directory) {
         tracing::event!(
             tracing::Level::INFO,
-            "creating home directory: {}",
+            "Creating home directory: {}",
             home_directory
         );
-
         create_dir_all(&home_directory)?;
     }
 
-    let sessions_file = format!("{}/{}", home_directory, session);
+    let sessions_file = format!("{}/{}.yaml", home_directory, session);
 
-    tracing::event!(tracing::Level::INFO, "sessions file: {}", sessions_file);
-
+    tracing::event!(
+        tracing::Level::INFO,
+        "Getting sessions file: {}",
+        sessions_file
+    );
     if !file_exists(&sessions_file) {
         tracing::event!(
             tracing::Level::INFO,
-            "creating sessions file: {}",
+            "Creating sessions file: {}",
             sessions_file
         );
-
         File::create(&sessions_file)?;
 
         let mut complete_api = Api::new(Default::default())?;
         complete_api.session = Some(session.to_string());
 
+        tracing::event!(
+            tracing::Level::INFO,
+            "Serializing sessions file: {}",
+            sessions_file
+        );
         serialize_sessions_file(&sessions_file, &complete_api)?;
     }
-
-    tracing::event!(
-        tracing::Level::INFO,
-        "returning sessions file: {}",
-        sessions_file
-    );
 
     Ok(sessions_file)
 }
 
 /// Deserialize the sessions file
 pub fn deserialize_sessions_file(sessions_file: &str) -> Result<Api> {
-    tracing::event!(
-        tracing::Level::INFO,
-        "deserializing sessions file: {}",
-        sessions_file
-    );
-
     let file = File::open(sessions_file)?;
     let reader = BufReader::new(file);
-    let complete_api = serde_json::from_reader(reader)?;
+    let complete_api = serde_yaml::from_reader(reader)?;
 
     Ok(complete_api)
 }
 
 /// Serialize the sessions file
 pub fn serialize_sessions_file(session_file: &str, complete_api: &Api) -> Result<()> {
-    tracing::event!(
-        tracing::Level::INFO,
-        "serializing sessions file: {}",
-        session_file
-    );
-
     let file = File::create(session_file)?;
     let writer = BufWriter::new(file);
 
-    serde_json::to_writer_pretty(writer, complete_api)?;
+    serde_yaml::to_writer(writer, complete_api)?;
 
     Ok(())
 }

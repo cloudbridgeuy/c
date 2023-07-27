@@ -16,7 +16,7 @@ pub fn directory_exists(dir_name: &str) -> bool {
 /// Get HOME directory.
 pub fn get_home_directory() -> String {
     match env::var("HOME") {
-        Ok(val) => val + "/.b/sessions",
-        Err(_) => String::from("/tmp/.b/sessions"),
+        Ok(val) => val + "/.c/sessions",
+        Err(_) => String::from("/tmp/.c/sessions"),
     }
 }

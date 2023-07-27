@@ -68,8 +68,9 @@ dependencies = [
  "serde",
  "serde_either",
  "serde_json",
- "serde_yaml 0.9.19",
+ "serde_yaml 0.9.25",
  "tokio",
+ "tokio-stream",
  "tracing",
 ]
 
@@ -123,7 +124,7 @@ dependencies = [
  "serde",
  "serde_either",
  "serde_json",
- "serde_yaml 0.9.19",
+ "serde_yaml 0.9.25",
  "tokio",
  "tokio-stream",
 ]
@@ -286,7 +287,8 @@ dependencies = [
  "openai",
  "serde",
  "serde_json",
- "serde_yaml 0.9.19",
+ "serde_yaml 0.9.25",
+ "spinner",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -332,7 +334,7 @@ dependencies = [
  "atty",
  "bitflags",
  "clap_lex 0.2.4",
- "indexmap",
+ "indexmap 1.9.2",
  "once_cell",
  "strsim",
  "termcolor",
@@ -715,6 +717,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "equivalent"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
+
+[[package]]
 name = "errno"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1037,7 +1045,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http",
- "indexmap",
+ "indexmap 1.9.2",
  "slab",
  "tokio",
  "tokio-util",
@@ -1049,6 +1057,12 @@ name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
+
+[[package]]
+name = "hashbrown"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
 
 [[package]]
 name = "heck"
@@ -1204,7 +1218,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.12.3",
+]
+
+[[package]]
+name = "indexmap"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5477fe2230a79769d8dc68e0eabf5437907c0457a5614a9e8dddb67f65eb65d"
+dependencies = [
+ "equivalent",
+ "hashbrown 0.14.0",
 ]
 
 [[package]]
@@ -1398,6 +1422,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "matchers"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
+dependencies = [
+ "regex-automata",
 ]
 
 [[package]]
@@ -1622,7 +1655,7 @@ dependencies = [
  "serde",
  "serde_either",
  "serde_json",
- "serde_yaml 0.9.19",
+ "serde_yaml 0.9.25",
  "tokio",
  "tokio-stream",
 ]
@@ -1772,7 +1805,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9469799ca90293a376f68f6fcb8f11990d9cff55602cfba0ba83893c973a7f46"
 dependencies = [
  "base64",
- "indexmap",
+ "indexmap 1.9.2",
  "line-wrap",
  "quick-xml",
  "serde",
@@ -1784,6 +1817,12 @@ name = "portable-atomic"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edc55135a600d700580e406b4de0d59cb9ad25e344a3a091a97ded2622ec4ec6"
+
+[[package]]
+name = "ppv-lite86"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
 name = "proc-macro-error"
@@ -1843,6 +1882,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+dependencies = [
+ "libc",
+ "rand_chacha",
+ "rand_core",
+]
+
+[[package]]
+name = "rand_chacha"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
+dependencies = [
+ "ppv-lite86",
+ "rand_core",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
+dependencies = [
+ "getrandom",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1878,6 +1947,9 @@ name = "regex-automata"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c230d73fb8d8c1b9c0b3135c5142a8acee3a0558fb8db5cf1cb65f8d7862132"
+dependencies = [
+ "regex-syntax",
+]
 
 [[package]]
 name = "regex-syntax"
@@ -2115,7 +2187,7 @@ version = "0.8.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578a7433b776b56a35785ed5ce9a7e777ac0598aac5a6dd1b4b18a307c7fc71b"
 dependencies = [
- "indexmap",
+ "indexmap 1.9.2",
  "ryu",
  "serde",
  "yaml-rust",
@@ -2123,11 +2195,11 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.9.19"
+version = "0.9.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f82e6c8c047aa50a7328632d067bcae6ef38772a79e28daf32f735e0e4f3dd10"
+checksum = "1a49e178e4452f45cb61d0cd8cebc1b0fafd3e41929e996cef79aa3aca91f574"
 dependencies = [
- "indexmap",
+ "indexmap 2.0.0",
  "itoa",
  "ryu",
  "serde",
@@ -2225,6 +2297,17 @@ checksum = "64a4a911eed85daf18834cfaa86a79b7d266ff93ff5ba14005426219480ed662"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "spinner"
+version = "0.0.0"
+dependencies = [
+ "indicatif",
+ "rand",
+ "tokio",
+ "tokio-stream",
+ "tracing",
 ]
 
 [[package]]
@@ -2550,10 +2633,14 @@ version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30a651bc37f915e81f087d86e62a18eec5f79550c7faff886f7090b4ea757c77"
 dependencies = [
+ "matchers",
  "nu-ansi-term",
+ "once_cell",
+ "regex",
  "sharded-slab",
  "smallvec",
  "thread_local",
+ "tracing",
  "tracing-core",
  "tracing-log",
 ]
