@@ -1,0 +1,33 @@
+[package]
+name = "c"
+version = "0.0.0"
+homepage = "https://github.com/cloudbridgeuy/a"
+description = "A CLI tool to interact with ChatGPT as a Software Engineer"
+autobins = false
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "c"
+path = "src/main.rs"
+
+[lib]
+name = "c"
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "4.1.8", features = ["derive", "env"] }
+openai = { path = "../openai", version = "0.0.0" }
+anthropic = { path = "../anthropic", version = "0.0.0" }
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.93"
+serde_yaml = "0.9.19"
+color-eyre = "0.6.2"
+tracing = "0.1.37"
+tracing-subscriber = "0.3.17"
+tokio = "1.29.1"
+tokio-stream = "0.1.14"
+indicatif = "0.17.5"
+
