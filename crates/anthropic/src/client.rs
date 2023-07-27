@@ -1,5 +1,4 @@
-use anyhow::Context;
-use anyhow::Result;
+use color_eyre::eyre::{Context, Result};
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::{Client as ReqwestClient, Response as ReqwestResponse};
 use std::time::Duration;

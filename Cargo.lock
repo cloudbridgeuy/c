@@ -58,6 +58,7 @@ name = "anthropic"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "color-eyre",
  "custom_error",
  "env_logger",
  "fs",

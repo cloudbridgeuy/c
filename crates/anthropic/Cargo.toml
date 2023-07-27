@@ -27,3 +27,4 @@ serde_yaml = "0.9.19"                # YAML data format for Serde
 anyhow = "1.0.71"                                   # Flexible concrete Error type built on std::error::Error
 tokio = { version = "1.27.0", features = ["full"] }                   # An event-driven, non-blocking I/O platform for writing asynchronous I/O backed applications.…
 tracing = "0.1.37"
+color-eyre = "0.6.2"

@@ -1,7 +1,7 @@
 use std::fs::{create_dir_all, File};
 use std::io::{BufReader, BufWriter};
 
-use anyhow::{anyhow, Result};
+use color_eyre::eyre::{anyhow, Result};
 use fs::{directory_exists, file_exists, get_home_directory};
 use serde::{self, Deserialize, Serialize};
 
