@@ -277,7 +277,7 @@ impl Api {
 
 pub fn get_session_file(session: &str) -> Result<String> {
     tracing::event!(tracing::Level::INFO, "Getting home directory...");
-    let home_directory = get_home_directory();
+    let home_directory = get_home_directory("/c/sessions");
     tracing::event!(tracing::Level::INFO, "home directory: {}", home_directory);
 
     // Create the HOME directory if it doesn't exist.
