@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 
 use anthropic::complete::Model as AnthropicModel;
+use serde::{Deserialize, Serialize};
 
 pub mod commands;
 pub mod utils;
@@ -54,7 +55,7 @@ impl From<AnthropicModel> for ClaudeModelOption {
     }
 }
 
-#[derive(ValueEnum, Debug, Clone)]
+#[derive(ValueEnum, Debug, Clone, Serialize, Deserialize)]
 #[clap(rename_all = "kebab-case")]
 pub enum Output {
     /// Plain text

@@ -1,6 +1,7 @@
-use color_eyre::eyre::{Context, Result};
+use color_eyre::eyre::{self, Context, Result};
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::{Client as ReqwestClient, Response as ReqwestResponse};
+use reqwest_eventsource::EventSource;
 use std::time::Duration;
 
 #[derive(Clone, Debug, Default)]
@@ -85,5 +86,24 @@ impl Client {
             .send()
             .await
             .context("can't send reqwest request")
+    }
+
+    /// Makes a POST request to the OpenAi API that returns a SSE stream.
+    pub async fn post_stream(&self, endpoint: &str, body: String) -> Result<EventSource> {
+        let mut url = self.base_url.clone();
+        url.push_str(endpoint);
+
+        log::debug!("POST: {}", url);
+
+        let builder = self
+            .reqwest
+            .post(url)
+            .headers(self.headers.clone())
+            .body(body);
+
+        match EventSource::new(builder) {
+            Ok(x) => Ok(x),
+            Err(e) => Err(eyre::eyre!("can't create event source: {}", e)),
+        }
     }
 }

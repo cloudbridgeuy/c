@@ -65,6 +65,7 @@ dependencies = [
  "gpt_tokenizer",
  "log",
  "reqwest",
+ "reqwest-eventsource",
  "serde",
  "serde_either",
  "serde_json",
