@@ -4,8 +4,11 @@ use anthropic::client::Client;
 use clap::{Parser, ValueEnum};
 use color_eyre::eyre::Result;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::{Stream, StreamExt};
 
-use super::anthropic::message::{Message, Role};
+use super::anthropic::message::{Chunk, Message, Role};
 use super::anthropic::session::Session;
 
 mod message;
@@ -177,7 +180,7 @@ fn parse_top_p(s: &str) -> std::result::Result<f32, String> {
 /// Runs the `anthropic` command.
 pub async fn run(mut options: Options) -> Result<()> {
     // Start the spinner animation
-    let spinner_arc = spinner::Spinner::new_with_checky_messages(5000);
+    let mut spinner = spinner::Spinner::new();
 
     // Finish parsing the options. Clap takes care of everything except support for readin the
     // user prompt from `stdin`.
@@ -204,11 +207,53 @@ pub async fn run(mut options: Options) -> Result<()> {
         session.messages.push(message);
     }
 
-    dbg!(&session);
-
-    tracing::event!(tracing::Level::INFO, "Creating client...");
     // Call the completion endpoint with the current session.
-    let client = Client::new(session.meta.key.clone())?;
+    if session.meta.stream {
+        let mut acc: String = Default::default();
+        let chunks = complete_stream(&session).await?;
+
+        tokio::pin!(chunks);
+
+        // Stop the spinner.
+        spinner.stop();
+
+        while let Some(chunk) = chunks.next().await {
+            if chunk.is_err() {
+                color_eyre::eyre::bail!("Error streaming response: {:?}", chunk);
+            }
+
+            let chunk = chunk.unwrap();
+
+            let len = acc.len();
+            let partial = chunk.completion[len..].to_string();
+
+            print!("{partial}");
+
+            acc = chunk.completion;
+        }
+        // Add a new line at the end to make sure the prompt is on a new line.
+        println!();
+
+        // Save the response to the session.
+        session
+            .messages
+            .push(Message::new(acc, Role::Assistant, session.meta.pin));
+
+        // Save the session to a file.
+        session.save()?;
+    } else {
+        complete(session).await?;
+    }
+
+    // Stop the spinner.
+    spinner.stop();
+
+    Ok(())
+}
+
+/// Completes the command by streaming the response.
+async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<Chunk>>> {
+    tracing::event!(tracing::Level::INFO, "Serializing body...");
     let body = serde_json::to_string(&CompleteRequestBody {
         model: session.options.model.to_string(),
         max_tokens_to_sample: session.options.max_tokens_to_sample,
@@ -216,10 +261,91 @@ pub async fn run(mut options: Options) -> Result<()> {
         temperature: session.options.temperature,
         top_k: session.options.top_k,
         top_p: session.options.top_p,
-        stream: false,
+        stream: session.meta.stream,
         prompt: session.complete_prompt()?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
+
+    tracing::event!(tracing::Level::INFO, "Creating client...");
+    let client = Client::new(session.meta.key.clone())?;
+
+    let mut event_source = client.post_stream("/v1/complete", body).await?;
+
+    let (tx, rx) = mpsc::channel(100);
+    tracing::event!(tracing::Level::INFO, "Streaming output...");
+    tokio::spawn(async move {
+        while let Some(ev) = event_source.next().await {
+            match ev {
+                Err(e) => {
+                    tracing::event!(tracing::Level::ERROR, "e: {e}");
+                    if tx
+                        .send(Err(color_eyre::eyre::format_err!(
+                            "Error streaming response: {e}"
+                        )))
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
+                }
+                Ok(event) => match event {
+                    reqwest_eventsource::Event::Open { .. } => {
+                        tracing::event!(tracing::Level::INFO, "Open SSE stream...");
+                    }
+                    reqwest_eventsource::Event::Message(message) => {
+                        tracing::event!(tracing::Level::DEBUG, "message: {:?}", message);
+
+                        if message.data == "[DONE]" {
+                            break;
+                        }
+
+                        let chunk: Chunk = match serde_json::from_str(&message.data) {
+                            Ok(chunk) => chunk,
+                            Err(e) => {
+                                tracing::event!(tracing::Level::ERROR, "e: {e}");
+                                if tx
+                                    .send(Err(color_eyre::eyre::format_err!(
+                                        "Error parsing response: {e}"
+                                    )))
+                                    .await
+                                    .is_err()
+                                {
+                                    return;
+                                }
+                                return;
+                            }
+                        };
+
+                        tracing::event!(tracing::Level::DEBUG, "chunk: {:?}", chunk);
+                        if tx.send(Ok(chunk)).await.is_err() {
+                            return;
+                        }
+                    }
+                },
+            }
+        }
+    });
+
+    Ok(ReceiverStream::from(rx))
+}
+
+/// Completes the command without streaming the response.
+async fn complete(mut session: Session) -> Result<()> {
+    tracing::event!(tracing::Level::INFO, "Serializing body...");
+    let body = serde_json::to_string(&CompleteRequestBody {
+        model: session.options.model.to_string(),
+        max_tokens_to_sample: session.options.max_tokens_to_sample,
+        stop_sequences: session.options.stop_sequences.clone(),
+        temperature: session.options.temperature,
+        top_k: session.options.top_k,
+        top_p: session.options.top_p,
+        stream: session.meta.stream,
+        prompt: session.complete_prompt()?,
+    })?;
+    tracing::event!(tracing::Level::INFO, "body: {:?}", body);
+
+    tracing::event!(tracing::Level::INFO, "Creating client...");
+    let client = Client::new(session.meta.key.clone())?;
 
     let res = client.post("/v1/complete", body).await?;
     tracing::event!(tracing::Level::INFO, "res: {:?}", res);
@@ -242,10 +368,6 @@ pub async fn run(mut options: Options) -> Result<()> {
 
     // Save the session to a file.
     session.save()?;
-
-    // Stop the spinner.
-    let mut spinner = spinner_arc.lock().await;
-    spinner.stop();
 
     Ok(())
 }

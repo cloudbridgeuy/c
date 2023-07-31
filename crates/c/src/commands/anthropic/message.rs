@@ -15,6 +15,15 @@ impl Message {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Chunk {
+    pub completion: String,
+    pub stop_reason: Option<String>,
+    pub model: String,
+    pub truncated: bool,
+    pub stop: Option<String>,
+}
+
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
     #[default]

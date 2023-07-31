@@ -93,7 +93,7 @@ impl Client {
         let mut url = self.base_url.clone();
         url.push_str(endpoint);
 
-        log::debug!("POST: {}", url);
+        tracing::event!(tracing::Level::INFO, "POST {}", url);
 
         let builder = self
             .reqwest

@@ -286,6 +286,7 @@ dependencies = [
  "color-eyre",
  "indicatif",
  "openai",
+ "reqwest-eventsource",
  "serde",
  "serde_json",
  "serde_yaml 0.9.25",

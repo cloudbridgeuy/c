@@ -190,7 +190,7 @@ impl Spinner {
     pub fn print(&mut self, msg: &str) {
         if self.state == State::Run {
             self.progress_bar.suspend(|| {
-                println!("{}", msg);
+                print!("{}", msg);
             });
         }
     }
