@@ -55,9 +55,10 @@ impl From<AnthropicModel> for ClaudeModelOption {
     }
 }
 
-#[derive(ValueEnum, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, ValueEnum, Debug, Clone, Serialize, Deserialize)]
 #[clap(rename_all = "kebab-case")]
 pub enum Output {
+    #[default]
     /// Plain text
     Raw,
     /// JSON
