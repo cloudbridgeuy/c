@@ -67,7 +67,7 @@ pub struct Options {
     #[arg(long)]
     session: Option<String>,
     /// The maximum number of tokens supported by the model.
-    #[arg(long, default_value = "4096")]
+    #[arg(long)]
     max_supported_tokens: Option<u32>,
     /// Controls which version of Claude answers your request. Two model families are exposed
     /// Claude and Claude Instant.
@@ -235,15 +235,27 @@ pub async fn run(mut options: Options) -> Result<()> {
         println!();
 
         // Save the response to the session.
-        session
-            .messages
-            .push(Message::new(acc, Role::Assistant, session.meta.pin));
-
-        // Save the session to a file.
-        session.save()?;
+        session.messages.push(Message::new(
+            acc.trim().to_string(),
+            Role::Assistant,
+            session.meta.pin,
+        ));
     } else {
-        complete(session).await?;
+        let response = complete(&session).await?;
+
+        // Print the response output.
+        print_output(&session.meta.format, &response)?;
+
+        // Save the response to the session.
+        session.messages.push(Message::new(
+            response.completion.trim().to_string(),
+            Role::Assistant,
+            session.meta.pin,
+        ));
     }
+
+    // Save the session to a file.
+    session.save()?;
 
     // Stop the spinner.
     spinner.stop();
@@ -330,7 +342,7 @@ async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<
 }
 
 /// Completes the command without streaming the response.
-async fn complete(mut session: Session) -> Result<()> {
+async fn complete(session: &Session) -> Result<Response> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
     let body = serde_json::to_string(&CompleteRequestBody {
         model: session.options.model.to_string(),
@@ -356,20 +368,7 @@ async fn complete(mut session: Session) -> Result<()> {
     let response: Response = serde_json::from_str(&text)?;
     tracing::event!(tracing::Level::INFO, "response: {:?}", response);
 
-    // Print the response output.
-    print_output(&session.meta.format, &response)?;
-
-    // Save the response to the session.
-    session.messages.push(Message::new(
-        response.completion,
-        Role::Assistant,
-        session.meta.pin,
-    ));
-
-    // Save the session to a file.
-    session.save()?;
-
-    Ok(())
+    Ok(response)
 }
 
 /// Prints the Response output according to the user options.

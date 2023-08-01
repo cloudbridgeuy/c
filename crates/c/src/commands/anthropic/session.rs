@@ -11,7 +11,7 @@ use super::message::{Message, Role};
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Options {
     /// The maximum number of tokens supported by the model.
-    pub max_supported_tokens: u32,
+    pub max_supported_tokens: Option<u32>,
     /// Controls which version of Claude answers your request. Two model families are exposed
     /// Claude and Claude Instant.
     pub model: String,
@@ -123,7 +123,7 @@ impl Session {
         }
 
         if options.max_supported_tokens.is_some() {
-            self.options.max_supported_tokens = options.max_supported_tokens.unwrap();
+            self.options.max_supported_tokens = options.max_supported_tokens;
         }
 
         if options.temperature.is_some() {
@@ -177,8 +177,8 @@ impl Session {
 
     /// Returns a valid completion prompt from the list of messages.
     pub fn complete_prompt(&self) -> Result<String> {
-        let max =
-            self.options.max_supported_tokens - self.options.max_tokens_to_sample.unwrap_or(1000);
+        let max = self.options.max_supported_tokens.unwrap_or(4096)
+            - self.options.max_tokens_to_sample.unwrap_or(1000);
         let mut messages = self.messages.clone();
         messages.push(Message::new("".to_string(), Role::Assistant, false));
 
