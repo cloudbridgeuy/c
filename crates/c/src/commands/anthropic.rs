@@ -8,8 +8,8 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::{Stream, StreamExt};
 
-use super::anthropic::message::{Chunk, Message, Role};
-use super::anthropic::session::Session;
+use message::{Chunk, Message, Role};
+use session::Session;
 
 mod message;
 mod session;
@@ -17,7 +17,7 @@ mod session;
 #[derive(ValueEnum, Debug, Default, Clone, Copy, Serialize, Deserialize)]
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "kebab-case")]
-pub enum ClaudeModelOption {
+pub enum Model {
     #[default]
     ClaudeV1,
     ClaudeV1_100k,
@@ -25,7 +25,7 @@ pub enum ClaudeModelOption {
     ClaudeInstantV1_100k,
 }
 
-impl ClaudeModelOption {
+impl Model {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::ClaudeV1 => "claude-v1",
@@ -72,7 +72,7 @@ pub struct Options {
     /// Controls which version of Claude answers your request. Two model families are exposed
     /// Claude and Claude Instant.
     #[clap(short, long, value_enum, default_value = "claude-v1")]
-    model: Option<ClaudeModelOption>,
+    model: Option<Model>,
     /// A maximum number of tokens to generate before stopping.
     #[arg(long, default_value = "1000")]
     max_tokens_to_sample: Option<u32>,
@@ -114,6 +114,7 @@ pub struct Options {
     format: Option<crate::Output>,
 }
 
+/// The range of values for the `temperature` option which goes from 0 to 1.
 const TEMPERATURE_RANGE: RangeInclusive<f32> = 0.0..=1.0;
 /// The range of values for the `top_k` option which goes from 0 to Infinity.
 const TOP_K_RANGE: RangeInclusive<f32> = 0.0..=f32::INFINITY;
@@ -182,7 +183,7 @@ pub async fn run(mut options: Options) -> Result<()> {
     // Start the spinner animation
     let mut spinner = spinner::Spinner::new();
 
-    // Finish parsing the options. Clap takes care of everything except support for readin the
+    // Finish parsing the options. Clap takes care of everything except reading the
     // user prompt from `stdin`.
     tracing::event!(tracing::Level::INFO, "Parsing prompt...");
     let prompt: Option<String> = if let Some(prompt) = options.prompt.take() {
@@ -214,10 +215,10 @@ pub async fn run(mut options: Options) -> Result<()> {
 
         tokio::pin!(chunks);
 
-        // Stop the spinner.
-        spinner.stop();
-
         while let Some(chunk) = chunks.next().await {
+            // Stop the spinner.
+            spinner.stop();
+
             if chunk.is_err() {
                 color_eyre::eyre::bail!("Error streaming response: {:?}", chunk);
             }
