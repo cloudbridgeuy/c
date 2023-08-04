@@ -19,6 +19,7 @@ mod session;
 #[serde(rename_all = "kebab-case")]
 pub enum Model {
     #[default]
+    Claude2,
     ClaudeV1,
     ClaudeV1_100k,
     ClaudeInstantV1,
@@ -28,6 +29,7 @@ pub enum Model {
 impl Model {
     pub fn as_str(&self) -> &'static str {
         match self {
+            Self::Claude2 => "claude-2",
             Self::ClaudeV1 => "claude-v1",
             Self::ClaudeV1_100k => "claude-v1-100k",
             Self::ClaudeInstantV1 => "claude-instant-v1",
@@ -40,7 +42,7 @@ impl Model {
 pub struct CompleteRequestBody {
     pub model: String,
     pub prompt: String,
-    pub max_tokens_to_sample: Option<u32>,
+    pub max_tokens_to_sample: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_sequences: Option<Vec<String>>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
@@ -216,21 +218,16 @@ pub async fn run(mut options: Options) -> Result<()> {
         tokio::pin!(chunks);
 
         while let Some(chunk) = chunks.next().await {
-            // Stop the spinner.
-            spinner.stop();
-
             if chunk.is_err() {
                 color_eyre::eyre::bail!("Error streaming response: {:?}", chunk);
             }
 
             let chunk = chunk.unwrap();
+            tracing::event!(tracing::Level::DEBUG, "Received chunk... {:?}", chunk);
 
-            let len = acc.len();
-            let partial = chunk.completion[len..].to_string();
+            spinner.print(&chunk.completion);
 
-            print!("{partial}");
-
-            acc = chunk.completion;
+            acc.push_str(&chunk.completion);
         }
         // Add a new line at the end to make sure the prompt is on a new line.
         println!();
@@ -306,10 +303,14 @@ async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<
                         tracing::event!(tracing::Level::INFO, "Open SSE stream...");
                     }
                     reqwest_eventsource::Event::Message(message) => {
-                        tracing::event!(tracing::Level::DEBUG, "message: {:?}", message);
+                        tracing::event!(tracing::Level::INFO, "message: {:?}", message);
 
                         if message.data == "[DONE]" {
                             break;
+                        }
+
+                        if message.event != "completion" {
+                            continue;
                         }
 
                         let chunk: Chunk = match serde_json::from_str(&message.data) {
@@ -318,7 +319,7 @@ async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<
                                 tracing::event!(tracing::Level::ERROR, "e: {e}");
                                 if tx
                                     .send(Err(color_eyre::eyre::format_err!(
-                                        "Error parsing response: {e}"
+                                        "Error parsing event: {e}"
                                     )))
                                     .await
                                     .is_err()
@@ -328,6 +329,25 @@ async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<
                                 return;
                             }
                         };
+
+                        if chunk.stop_reason.is_some() {
+                            let stop_reason = chunk.stop_reason.clone().unwrap();
+
+                            tracing::event!(
+                                tracing::Level::INFO,
+                                "Stopping stream due to stop_reason: {stop_reason}",
+                            );
+
+                            if stop_reason == "stop_sequence" {
+                                tracing::event!(
+                                    tracing::Level::INFO,
+                                    "Found stop sequence: {}",
+                                    &chunk.stop.unwrap()
+                                );
+                            }
+
+                            break;
+                        }
 
                         tracing::event!(tracing::Level::DEBUG, "chunk: {:?}", chunk);
                         if tx.send(Ok(chunk)).await.is_err() {

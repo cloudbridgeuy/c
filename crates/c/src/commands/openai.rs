@@ -282,9 +282,6 @@ pub async fn run(mut options: Options) -> Result<()> {
         tokio::pin!(chunks);
 
         while let Some(chunk) = chunks.next().await {
-            // Stop the spinner.
-            spinner.stop();
-
             if chunk.is_err() {
                 color_eyre::eyre::bail!("Error streaming response: {:?}", chunk);
             }
@@ -295,7 +292,7 @@ pub async fn run(mut options: Options) -> Result<()> {
                 if let Some(delta) = &choice.delta {
                     if let Some(content) = &delta.content {
                         acc.push_str(content);
-                        print!("{}", content);
+                        spinner.print(content);
                     }
                 }
             }

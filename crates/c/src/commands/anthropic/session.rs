@@ -16,7 +16,7 @@ pub struct Options {
     /// Claude and Claude Instant.
     pub model: String,
     /// A maximum number of tokens to generate before stopping.
-    pub max_tokens_to_sample: Option<u32>,
+    pub max_tokens_to_sample: u32,
     /// Claude models stop on `\n\nHuman:`, and may include additional built-in stops sequences
     /// in the future. By providing the `stop_sequences` parameter, you may include additional
     /// strings that will cause the model to stop generation.
@@ -119,7 +119,7 @@ impl Session {
         }
 
         if options.max_tokens_to_sample.is_some() {
-            self.options.max_tokens_to_sample = options.max_tokens_to_sample;
+            self.options.max_tokens_to_sample = options.max_tokens_to_sample.unwrap_or(1000);
         }
 
         if options.max_supported_tokens.is_some() {
@@ -177,8 +177,8 @@ impl Session {
 
     /// Returns a valid completion prompt from the list of messages.
     pub fn complete_prompt(&self) -> Result<String> {
-        let max = self.options.max_supported_tokens.unwrap_or(4096)
-            - self.options.max_tokens_to_sample.unwrap_or(1000);
+        let max =
+            self.options.max_supported_tokens.unwrap_or(4096) - self.options.max_tokens_to_sample;
         let mut messages = self.messages.clone();
         messages.push(Message::new("".to_string(), Role::Assistant, false));
 

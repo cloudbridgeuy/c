@@ -106,11 +106,6 @@ impl CommandHandle<Response> for CompleteCreateCommand {
     type CallError = CommandError;
 
     async fn call(&self) -> Result<Response, Self::CallError> {
-        match self.api.create().await {
-            Ok(response) => Ok(response),
-            Err(e) => Err(CommandError::AnthropicError {
-                body: e.to_string(),
-            }),
-        }
+        todo!()
     }
 }

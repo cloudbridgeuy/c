@@ -20,7 +20,10 @@ fn create_headers(api_key: String) -> Result<HeaderMap> {
         HeaderValue::from_str(api_key.as_str()).context("can't create authorization header")?;
     let content_type =
         HeaderValue::from_str("application/json").context("can't create content-type header")?;
+    let version =
+        HeaderValue::from_str("2023-06-01").context("can't create anthropic-version header")?;
 
+    headers.insert("anthropic-version", version);
     headers.insert("X-API-Key", authorization);
     headers.insert("Content-Type", content_type);
 
