@@ -410,13 +410,18 @@ async fn complete(session: &Session) -> Result<Response> {
     tracing::event!(tracing::Level::INFO, "Creating client...");
     let client = Client::new(session.meta.key.clone())?;
 
-    let res = client.post("/v1/complete", body).await?;
+    let res = client.post("/v1/complete", body.clone()).await?;
     tracing::event!(tracing::Level::INFO, "res: {:?}", res);
 
     let text = res.text().await?;
     tracing::event!(tracing::Level::INFO, "text: {:?}", text);
 
-    let response: Response = serde_json::from_str(&text)?;
+    let response: Response = serde_json::from_str(&text).map_err(|e| {
+        tracing::event!(tracing::Level::ERROR, "Error parsing response text.");
+        tracing::event!(tracing::Level::ERROR, "body: {body}");
+        tracing::event!(tracing::Level::ERROR, "text: {text}");
+        color_eyre::eyre::format_err!("error: {e}")
+    })?;
     tracing::event!(tracing::Level::INFO, "response: {:?}", response);
 
     Ok(response)
