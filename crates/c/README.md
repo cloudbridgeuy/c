@@ -1,72 +1,97 @@
-# b
+# c - Chatbot CLI
 
-## Snippets
+## Usage
 
-```rust
-#[derive(Debug, Parser)]
-#[command(name = "v2")]
-#[command(about = "Interact with OpenAI's ChatGPT through the terminal")]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<Commands>,
-
-    /// Name of the chat session.
-    #[arg(short, long)]
-    session: Option<String>,
-
-    /// URL endpoint of the OpenAI ChatGPT API.
-    #[arg(short, long, default_value_t=String::from("https://api.openai.com/v1/chat/completions"))]
-    url: String,
-
-    /// ChatGPT model to use.
-    #[arg(short, long, default_value_t=String::from("gpt-3.5-turbo"))]
-    model: String,
-
-    /// Temperature value of ChatGPT response.
-    #[arg(long, default_value_t=0.0, value_parser = in_range)]
-    temperature: f32,
-
-    /// Top-p value of ChatGPT response.
-    #[arg(long, default_value_t=0.8, value_parser = in_range)]
-    top_p: f32,
-
-    /// Presence penalty value of ChatGPT response.
-    #[arg(long, default_value_t=0.0, value_parser = in_range)]
-    presence_penalty: f32,
-
-    /// Frequencey penalty value of ChatGPT response.
-    #[arg(long, default_value_t=0.0, value_parser = in_range)]
-    frequency_penalty: f32,
-
-    /// Prompt that should be send to ChatGPT.
-    prompt: Vec<String>,
-}
-
-fn in_range(s: &str) -> Result<f32, String> {
-    let num: f32 = s.parse().map_err(|_| "Not a number".to_string())?;
-    if &num < &0.0 {
-        Err(String::from("Temperature must be positive"))
-    } else if &num > &1.0 {
-        Err(String::from("Temperature must be less than 1"))
-    } else {
-        Ok(num)
-    }
-}
-
-#[derive(Debug, Subcommand)]
-enum Commands {
-    /// Whisper to OpenAI
-    Whisper,
-    /// Create new resources
-    New {
-        #[command(subcommand)]
-        command: NewCommand,
-    },
-}
-
-#[derive(Debug, Subcommand, Clone)]
-enum NewCommand {
-    /// Create a new chat session
-    Chat,
-}
 ```
+c [COMMAND]
+```
+
+## Commands
+
+### anthropic
+
+Anthropic Chat API
+
+```
+c anthropic [OPTIONS] --anthropic-api-key <ANTHROPIC_API_KEY> [PROMPT]
+```
+
+Interact with Anthropic's Claude chatbot API. Allows specifying model, temperature, max tokens etc.
+
+### openai
+
+OpenAI Chat API
+
+```
+c openai [OPTIONS] --openai-api-key <OPENAI_API_KEY> [PROMPT]
+```
+
+Interact with OpenAI's chatbot API. Allows specifying model, temperature, max tokens etc.
+
+### help
+
+Print help for commands and options
+
+```
+c help [COMMAND]
+```
+
+## Options
+
+**-h, --help**
+
+Print help
+
+## Anthropic Options
+
+**--model**
+
+Claude model to use (default: claude-v1)
+
+**--temperature**
+
+Randomness of response (default: 1)
+
+**--max-tokens**
+
+Maximum tokens to generate (default: 1000)
+
+**--stop-sequences**
+
+Strings to stop generation
+
+**--anthropic-api-key**
+
+Anthropic API key
+
+## OpenAI Options
+
+**--model**
+
+OpenAI model to use
+
+**--temperature**
+
+Randomness of response (default: 1)
+
+**--max-tokens**
+
+Maximum tokens to generate
+
+**--openai-api-key**
+
+OpenAI API key
+
+## Output Options
+
+**-s, --silent**
+
+Silent mode
+
+**--stream**
+
+Stream output
+
+**-f, --format**
+
+Output format (default: raw)
