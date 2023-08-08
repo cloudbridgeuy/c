@@ -13,7 +13,7 @@ pub struct Client {
     headers: HeaderMap,
 }
 
-const OPEN_API_URL: &str = "https://api.openai.com/v1";
+const OPEN_API_URL: &str = "https://api.openai.com";
 
 fn create_headers(api_key: String) -> Result<HeaderMap, error::OpenAi> {
     let mut auth = String::from("Bearer ");
