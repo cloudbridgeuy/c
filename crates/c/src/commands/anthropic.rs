@@ -53,7 +53,7 @@ impl Model {
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct RequestOptions {
-    pub model: String,
+    pub model: Model,
     pub prompt: String,
     pub max_tokens_to_sample: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -71,12 +71,7 @@ pub struct RequestOptions {
 impl From<CommandOptions> for RequestOptions {
     fn from(options: CommandOptions) -> Self {
         Self {
-            model: options
-                .model
-                .as_ref()
-                .unwrap_or(&Model::default())
-                .as_str()
-                .to_string(),
+            model: options.model.unwrap_or_default(),
             prompt: options.prompt.unwrap_or_default(),
             max_tokens_to_sample: options.max_tokens_to_sample.unwrap_or(1000),
             stop_sequences: options.stop_sequences,
@@ -90,10 +85,12 @@ impl From<CommandOptions> for RequestOptions {
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct SessionOptions {
-    pub model: String,
-    max_tokens_to_sample: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub stop_sequences: Option<Vec<String>>,
+    model: Option<Model>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens_to_sample: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stop_sequences: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -105,12 +102,12 @@ pub struct SessionOptions {
 impl From<RequestOptions> for SessionOptions {
     fn from(options: RequestOptions) -> Self {
         Self {
-            model: options.model.to_string(),
+            model: Some(options.model),
             stop_sequences: options.stop_sequences,
             temperature: options.temperature,
             top_k: options.top_k,
             top_p: options.top_p,
-            max_tokens_to_sample: options.max_tokens_to_sample,
+            max_tokens_to_sample: Some(options.max_tokens_to_sample),
         }
     }
 }
@@ -408,7 +405,7 @@ pub fn merge_options(
     options: CommandOptions,
 ) -> Result<Session<SessionOptions>> {
     if options.model.is_some() {
-        session.options.model = options.model.unwrap().as_str().to_string();
+        session.options.model = options.model;
         session.max_supported_tokens = options.model.unwrap().as_u32();
     }
 
@@ -449,9 +446,10 @@ async fn complete_stream(
     session: &Session<SessionOptions>,
 ) -> Result<impl Stream<Item = Result<Chunk>>> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
+    let max_tokens_to_sample = session.options.max_tokens_to_sample.unwrap_or(1000);
     let body = serde_json::to_string(&RequestOptions {
-        model: session.options.model.to_string(),
-        max_tokens_to_sample: session.options.max_tokens_to_sample,
+        model: session.options.model.unwrap_or_default(),
+        max_tokens_to_sample,
         stop_sequences: session.options.stop_sequences.clone(),
         temperature: session.options.temperature,
         top_k: session.options.top_k,
@@ -460,7 +458,7 @@ async fn complete_stream(
         prompt: complete_prompt(
             session.history.clone(),
             session.max_supported_tokens,
-            session.options.max_tokens_to_sample,
+            max_tokens_to_sample,
         )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
@@ -554,9 +552,10 @@ async fn complete_stream(
 /// Completes the command without streaming the response.
 async fn complete(session: &Session<SessionOptions>) -> Result<Response> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
+    let max_tokens_to_sample = session.options.max_tokens_to_sample.unwrap_or(1000);
     let body = serde_json::to_string(&RequestOptions {
-        model: session.options.model.to_string(),
-        max_tokens_to_sample: session.options.max_tokens_to_sample,
+        model: session.options.model.unwrap_or_default(),
+        max_tokens_to_sample,
         stop_sequences: session.options.stop_sequences.clone(),
         temperature: session.options.temperature,
         top_k: session.options.top_k,
@@ -565,7 +564,7 @@ async fn complete(session: &Session<SessionOptions>) -> Result<Response> {
         prompt: complete_prompt(
             session.history.clone(),
             session.max_supported_tokens,
-            session.options.max_tokens_to_sample,
+            max_tokens_to_sample,
         )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
