@@ -64,6 +64,23 @@ pub struct Session<T: Default> {
 }
 
 impl<T: Default + Serialize + for<'a> Deserialize<'a>> Session<T> {
+    /// Creates a new anonymous session
+    pub fn anonymous(vendor: Vendor, options: T, max_supported_tokens: u32) -> Session<T> {
+        let id = ulid::Ulid::new().to_string();
+        let home = env::var("C_ROOT").unwrap_or(env::var("HOME").unwrap());
+        let path = format!("{home}/.c/sessions/anonymous/{id}.yaml");
+        Self {
+            vendor,
+            max_supported_tokens,
+            options,
+            meta: Meta {
+                path,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
     /// Creates a new session
     pub fn new(id: String, vendor: Vendor, options: T, max_supported_tokens: u32) -> Session<T> {
         let home = env::var("C_ROOT").unwrap_or(env::var("HOME").unwrap());

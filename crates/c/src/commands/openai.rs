@@ -458,8 +458,7 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
         }
     } else {
         tracing::event!(tracing::Level::INFO, "Creating anonymous session...");
-        let session: Session<SessionOptions> = Session::new(
-            Ulid::new().to_string(),
+        let session: Session<SessionOptions> = Session::anonymous(
             Vendor::OpenAI,
             session_options,
             options.model.unwrap_or(Model::default()).as_u32(),
