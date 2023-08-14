@@ -1,7 +1,4 @@
-use std::env;
-use std::fs;
 use std::ops::RangeInclusive;
-use std::path;
 
 use anthropic::client::Client;
 use clap::{Parser, ValueEnum};
@@ -12,20 +9,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::{Stream, StreamExt};
 use ulid::Ulid;
 
-/// Stores a message.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Message {
-    pub content: String,
-    pub role: Role,
-    pub pin: bool,
-}
-
-impl Message {
-    /// Creates a new message.
-    pub fn new(content: String, role: Role, pin: bool) -> Self {
-        Self { content, role, pin }
-    }
-}
+use crate::session::{Message, Role, Session, Vendor};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
@@ -33,15 +17,6 @@ pub struct Chunk {
     pub stop_reason: Option<String>,
     pub model: String,
     pub stop: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub enum Role {
-    #[default]
-    /// The user is a human
-    Human,
-    /// The user is a bot
-    Assistant,
 }
 
 #[derive(ValueEnum, Debug, Default, Clone, Copy, Serialize, Deserialize)]
@@ -66,10 +41,18 @@ impl Model {
             Self::ClaudeInstantV1_100k => "claude-instant-v1-100k",
         }
     }
+
+    pub fn as_u32(&self) -> u32 {
+        match self {
+            Self::Claude2 => 100_000,
+            Self::ClaudeV1 | Self::ClaudeInstantV1 => 8_000,
+            Self::ClaudeV1_100k | Self::ClaudeInstantV1_100k => 100_000,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub struct CompleteRequestBody {
+pub struct RequestOptions {
     pub model: String,
     pub prompt: String,
     pub max_tokens_to_sample: u32,
@@ -85,6 +68,27 @@ pub struct CompleteRequestBody {
     top_p: Option<f32>,
 }
 
+impl From<CommandOptions> for RequestOptions {
+    fn from(options: CommandOptions) -> Self {
+        println!("options: {:?}", options);
+        Self {
+            model: options
+                .model
+                .as_ref()
+                .unwrap_or(&Model::default())
+                .as_str()
+                .to_string(),
+            prompt: options.prompt.unwrap_or_default(),
+            max_tokens_to_sample: options.max_tokens_to_sample.unwrap_or(1000),
+            stop_sequences: options.stop_sequences,
+            stream: options.stream,
+            temperature: options.temperature,
+            top_k: options.top_k,
+            top_p: options.top_p,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Response {
     pub completion: String,
@@ -92,7 +96,7 @@ pub struct Response {
 }
 
 #[derive(Default, Clone, Parser, Debug, Serialize, Deserialize)]
-pub struct Options {
+pub struct CommandOptions {
     /// The prompt you want Claude to complete.
     prompt: Option<String>,
     /// Chat session name. Will be used to store previous session interactions.
@@ -211,14 +215,14 @@ fn parse_top_p(s: &str) -> std::result::Result<f32, String> {
 }
 
 /// Runs the `anthropic` command.
-pub async fn run(mut options: Options) -> Result<()> {
+pub async fn run(mut options: CommandOptions) -> Result<()> {
     // Start the spinner animation
     let mut spinner = spinner::Spinner::new();
 
     // Finish parsing the options. Clap takes care of everything except reading the
     // user prompt from `stdin`.
     tracing::event!(tracing::Level::INFO, "Parsing prompt...");
-    let prompt: Option<String> = if let Some(prompt) = options.prompt.take() {
+    let prompt: Option<String> = if let Some(prompt) = options.prompt.clone() {
         Some(if prompt == "-" {
             tracing::event!(tracing::Level::INFO, "Reading prompt from stdin...");
             let stdin = crate::utils::read_from_stdin()?.trim().to_string();
@@ -230,14 +234,46 @@ pub async fn run(mut options: Options) -> Result<()> {
         None
     };
 
+    // Get the CompleteRequestBody options from the command options.
+    let request_options: RequestOptions = options.clone().into();
+
+    // Create a new session.
+    // If the user provided a session name then we need to check if it exists.
+    let session: Session<RequestOptions> = if let Some(session) = options.session.take() {
+        tracing::event!(tracing::Level::INFO, "Checking if session exists...");
+        if Session::<RequestOptions>::exists(&session) {
+            tracing::event!(tracing::Level::INFO, "Session exists, loading...");
+            let session: Session<RequestOptions> = Session::load(&session)?;
+            session
+        } else {
+            tracing::event!(tracing::Level::INFO, "Session does not exist, creating...");
+            let session: Session<RequestOptions> = Session::new(
+                session,
+                Vendor::Anthropic,
+                request_options,
+                options.model.unwrap_or(Model::default()).as_u32(),
+            );
+            session
+        }
+    } else {
+        tracing::event!(tracing::Level::INFO, "Creating anonymous session...");
+        let session: Session<RequestOptions> = Session::new(
+            Ulid::new().to_string(),
+            Vendor::Anthropic,
+            request_options,
+            options.model.unwrap_or(Model::default()).as_u32(),
+        );
+        session
+    };
+
     tracing::event!(tracing::Level::INFO, "Creating session...");
     // Create a new named or anonymous session.
-    let mut session = Session::from(options)?;
+    let mut session = merge_options(session, options)?;
 
     // Add the new prompt message to the session messages if one was provided.
     if let Some(prompt) = prompt {
         let message = Message::new(prompt, Role::Human, session.meta.pin);
-        session.messages.push(message);
+        session.history.push(message);
     }
 
     // Call the completion endpoint with the current session.
@@ -255,7 +291,13 @@ pub async fn run(mut options: Options) -> Result<()> {
             let chunk = chunk.unwrap();
             tracing::event!(tracing::Level::DEBUG, "Received chunk... {:?}", chunk);
 
-            spinner.print(&chunk.completion);
+            // TODO: I can't make the stream print to `stdout` without some artifacts to appear
+            // on the console due to it.
+            // Stop the spinner when the stream starts.
+            spinner.stop();
+
+            // Print the response output.
+            print!("{}", chunk.completion);
 
             acc.push_str(&chunk.completion);
         }
@@ -263,7 +305,7 @@ pub async fn run(mut options: Options) -> Result<()> {
         println!();
 
         // Save the response to the session.
-        session.messages.push(Message::new(
+        session.history.push(Message::new(
             acc.trim().to_string(),
             Role::Assistant,
             session.meta.pin,
@@ -275,7 +317,7 @@ pub async fn run(mut options: Options) -> Result<()> {
         print_output(&session.meta.format, &response)?;
 
         // Save the response to the session.
-        session.messages.push(Message::new(
+        session.history.push(Message::new(
             response.completion.trim().to_string(),
             Role::Assistant,
             session.meta.pin,
@@ -291,18 +333,117 @@ pub async fn run(mut options: Options) -> Result<()> {
     Ok(())
 }
 
+/// Returns a valid completion prompt from the list of messages.
+pub fn complete_prompt(
+    mut messages: Vec<Message>,
+    max_supported_tokens: u32,
+    max_tokens_to_sample: u32,
+) -> Result<String> {
+    let max = max_supported_tokens - max_tokens_to_sample;
+    messages.push(Message::new("".to_string(), Role::Assistant, false));
+
+    tracing::event!(
+        tracing::Level::INFO,
+        "Creating a complete prompt that is less than {max} tokens long"
+    );
+
+    let prompt = loop {
+        let prompt = join_messages(&messages);
+        let tokens = token_length(&prompt) as u32;
+
+        if tokens <= max {
+            tracing::event!(
+                tracing::Level::INFO,
+                "Tokens ({tokens}) is less than max ({max}). Returning prompt",
+            );
+            break prompt;
+        }
+
+        if let Some((index, _)) = messages.iter().enumerate().find(|(_, m)| !m.pin) {
+            tracing::event!(
+                tracing::Level::INFO,
+                "Tokens ({tokens}) is greater than max ({max}). Trying again with fewer messages",
+            );
+            messages.remove(index);
+        } else {
+            Err(color_eyre::eyre::format_err!(
+                "The prompt is larger than {max} and there are no messages to remove"
+            ))?;
+        }
+    };
+
+    Ok(prompt)
+}
+
+/// Merges an options object into the session options.
+pub fn merge_options(
+    mut session: Session<RequestOptions>,
+    options: CommandOptions,
+) -> Result<Session<RequestOptions>> {
+    if options.model.is_some() {
+        session.last_request_options.model = options.model.unwrap().as_str().to_string();
+        session.max_supported_tokens = options.model.unwrap().as_u32();
+    }
+
+    if options.prompt.is_some() {
+        session.last_request_options.prompt = options.prompt.unwrap();
+    }
+
+    if options.max_tokens_to_sample.is_some() {
+        session.last_request_options.max_tokens_to_sample =
+            options.max_tokens_to_sample.unwrap_or(1000);
+    }
+
+    if options.max_supported_tokens.is_some() {
+        session.max_supported_tokens = options.max_supported_tokens.unwrap();
+    }
+
+    if options.temperature.is_some() {
+        session.last_request_options.temperature = options.temperature;
+    }
+
+    if options.top_k.is_some() {
+        session.last_request_options.top_k = options.top_k;
+    }
+
+    if options.top_p.is_some() {
+        session.last_request_options.top_p = options.top_p;
+    }
+
+    if options.stop_sequences.is_some() {
+        session.last_request_options.stop_sequences = options.stop_sequences;
+    }
+
+    if options.format.is_some() {
+        session.meta.format = options.format.unwrap();
+    }
+
+    session.meta.key = options.anthropic_api_key;
+    session.meta.stream = options.stream;
+    session.meta.silent = options.silent;
+    session.meta.pin = options.pin;
+
+    Ok(session)
+}
+
 /// Completes the command by streaming the response.
-async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<Chunk>>> {
+async fn complete_stream(
+    session: &Session<RequestOptions>,
+) -> Result<impl Stream<Item = Result<Chunk>>> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
-    let body = serde_json::to_string(&CompleteRequestBody {
-        model: session.options.model.to_string(),
-        max_tokens_to_sample: session.options.max_tokens_to_sample,
-        stop_sequences: session.options.stop_sequences.clone(),
-        temperature: session.options.temperature,
-        top_k: session.options.top_k,
-        top_p: session.options.top_p,
+    let body = serde_json::to_string(&RequestOptions {
+        model: session.last_request_options.model.to_string(),
+        max_tokens_to_sample: session.last_request_options.max_tokens_to_sample,
+        stop_sequences: session.last_request_options.stop_sequences.clone(),
+        temperature: session.last_request_options.temperature,
+        top_k: session.last_request_options.top_k,
+        top_p: session.last_request_options.top_p,
         stream: session.meta.stream,
-        prompt: session.complete_prompt()?,
+        prompt: complete_prompt(
+            session.history.clone(),
+            session.max_supported_tokens,
+            session.last_request_options.max_tokens_to_sample,
+        )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
 
@@ -330,10 +471,10 @@ async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<
                 }
                 Ok(event) => match event {
                     reqwest_eventsource::Event::Open { .. } => {
-                        tracing::event!(tracing::Level::INFO, "Open SSE stream...");
+                        tracing::event!(tracing::Level::DEBUG, "Open SSE stream...");
                     }
                     reqwest_eventsource::Event::Message(message) => {
-                        tracing::event!(tracing::Level::INFO, "message: {:?}", message);
+                        tracing::event!(tracing::Level::DEBUG, "message: {:?}", message);
 
                         if message.data == "[DONE]" {
                             break;
@@ -393,17 +534,21 @@ async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<
 }
 
 /// Completes the command without streaming the response.
-async fn complete(session: &Session) -> Result<Response> {
+async fn complete(session: &Session<RequestOptions>) -> Result<Response> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
-    let body = serde_json::to_string(&CompleteRequestBody {
-        model: session.options.model.to_string(),
-        max_tokens_to_sample: session.options.max_tokens_to_sample,
-        stop_sequences: session.options.stop_sequences.clone(),
-        temperature: session.options.temperature,
-        top_k: session.options.top_k,
-        top_p: session.options.top_p,
+    let body = serde_json::to_string(&RequestOptions {
+        model: session.last_request_options.model.to_string(),
+        max_tokens_to_sample: session.last_request_options.max_tokens_to_sample,
+        stop_sequences: session.last_request_options.stop_sequences.clone(),
+        temperature: session.last_request_options.temperature,
+        top_k: session.last_request_options.top_k,
+        top_p: session.last_request_options.top_p,
         stream: session.meta.stream,
-        prompt: session.complete_prompt()?,
+        prompt: complete_prompt(
+            session.history.clone(),
+            session.max_supported_tokens,
+            session.last_request_options.max_tokens_to_sample,
+        )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
 
@@ -473,187 +618,6 @@ pub struct CompletionOptions {
     pub top_p: Option<f32>,
 }
 
-/// Important data that depends on the command invocation.
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Meta {
-    path: String,
-    pub silent: bool,
-    pub stream: bool,
-    pub pin: bool,
-    pub key: String,
-    pub format: crate::Output,
-}
-
-impl Meta {
-    pub fn new(path: String) -> Self {
-        Self {
-            path,
-            ..Default::default()
-        }
-    }
-}
-
-/// Represents a chat session.
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Session {
-    id: String,
-    pub messages: Vec<Message>,
-    pub options: CompletionOptions,
-    #[serde(skip)]
-    pub meta: Meta,
-}
-
-impl Session {
-    /// Creates a new session
-    fn new(id: String, path: String) -> Self {
-        Self {
-            id,
-            meta: Meta::new(path),
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new session from the anthropic command options.
-    pub fn from(options: Options) -> Result<Self> {
-        let mut session = if let Some(id) = options.session.clone() {
-            Self::load(id)?
-        } else {
-            let id = Ulid::new().to_string();
-            let home = env::var("C_ROOT").unwrap_or(env::var("HOME")?);
-            let path = format!("{home}/.c/sessions/anonymous/{id}.yaml");
-            Self::new(id, path)
-        };
-
-        session.merge_options(options)?;
-
-        Ok(session)
-    }
-
-    /// Tries to load a session from the filesystem.
-    pub fn load(id: String) -> Result<Self> {
-        let home = env::var("C_ROOT").unwrap_or(env::var("HOME")?);
-        let path = format!("{home}/.c/sessions/{id}.yaml");
-
-        let meta = Meta {
-            path: path.clone(),
-            ..Default::default()
-        };
-
-        let session = if fs::metadata(&path).is_ok() {
-            let mut session: Session = serde_yaml::from_str(&fs::read_to_string(&path)?)?;
-            session.meta = meta;
-            session
-        } else {
-            Self::new(id, path)
-        };
-
-        Ok(session)
-    }
-
-    /// Merges an options object into the session options.
-    pub fn merge_options(&mut self, options: Options) -> Result<()> {
-        if options.model.is_some() {
-            self.options.model = options.model.unwrap().as_str().to_string();
-        }
-
-        if options.max_tokens_to_sample.is_some() {
-            self.options.max_tokens_to_sample = options.max_tokens_to_sample.unwrap_or(1000);
-        }
-
-        if options.max_supported_tokens.is_some() {
-            self.options.max_supported_tokens = options.max_supported_tokens;
-        }
-
-        if options.temperature.is_some() {
-            self.options.temperature = options.temperature;
-        }
-
-        if options.top_k.is_some() {
-            self.options.top_k = options.top_k;
-        }
-
-        if options.top_p.is_some() {
-            self.options.top_p = options.top_p;
-        }
-
-        if options.stop_sequences.is_some() {
-            self.options.stop_sequences = options.stop_sequences;
-        }
-
-        if options.format.is_some() {
-            self.meta.format = options.format.unwrap();
-        }
-
-        self.meta.key = options.anthropic_api_key;
-        self.meta.stream = options.stream;
-        self.meta.silent = options.silent;
-        self.meta.pin = options.pin;
-
-        Ok(())
-    }
-
-    /// Saves the session to the filesystem.
-    pub fn save(&self) -> Result<()> {
-        tracing::event!(
-            tracing::Level::INFO,
-            "saving session to {:?}",
-            self.meta.path
-        );
-        let parent = path::Path::new(&self.meta.path)
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap();
-
-        if !directory_exists(parent) {
-            fs::create_dir_all(parent)?;
-        }
-
-        fs::write(&self.meta.path, serde_yaml::to_string(&self)?)?;
-        Ok(())
-    }
-
-    /// Returns a valid completion prompt from the list of messages.
-    pub fn complete_prompt(&self) -> Result<String> {
-        let max =
-            self.options.max_supported_tokens.unwrap_or(4096) - self.options.max_tokens_to_sample;
-        let mut messages = self.messages.clone();
-        messages.push(Message::new("".to_string(), Role::Assistant, false));
-
-        tracing::event!(
-            tracing::Level::INFO,
-            "Creating a complete prompt that is less than {max} tokens long"
-        );
-
-        let prompt = loop {
-            let prompt = join_messages(&messages);
-            let tokens = token_length(&prompt) as u32;
-
-            if tokens <= max {
-                tracing::event!(
-                    tracing::Level::INFO,
-                    "Tokens ({tokens}) is less than max ({max}). Returning prompt",
-                );
-                break prompt;
-            }
-
-            if let Some((index, _)) = messages.iter().enumerate().find(|(_, m)| !m.pin) {
-                tracing::event!(
-                    tracing::Level::INFO,
-                    "Tokens ({tokens}) is greater than max ({max}). Trying again with fewer messages",
-                );
-                messages.remove(index);
-            } else {
-                Err(color_eyre::eyre::format_err!(
-                    "The prompt is larger than {max} and there are no messages to remove"
-                ))?;
-            }
-        };
-
-        Ok(prompt)
-    }
-}
-
 /// Join messages
 fn join_messages(messages: &[Message]) -> String {
     messages
@@ -661,12 +625,6 @@ fn join_messages(messages: &[Message]) -> String {
         .map(|m| format!("\n\n{:?}: {}", m.role, m.content))
         .collect::<Vec<String>>()
         .join("")
-}
-
-/// Chacks if a directory exists.
-pub fn directory_exists(dir_name: &str) -> bool {
-    let p = path::Path::new(dir_name);
-    p.exists() && p.is_dir()
 }
 
 /// Token language of a prompt.

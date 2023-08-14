@@ -4,6 +4,7 @@ use anthropic::complete::Model as AnthropicModel;
 use serde::{Deserialize, Serialize};
 
 pub mod commands;
+pub mod session;
 pub mod utils;
 
 #[derive(Debug, Parser)]
@@ -18,7 +19,7 @@ pub struct Cli {
 pub enum Commands {
     /// Anthropic Chat AI API
     #[clap(alias = "a")]
-    Anthropic(commands::anthropic::Options),
+    Anthropic(commands::anthropic::CommandOptions),
     /// OpenAi Chat AI API
     #[clap(name = "openai", alias = "o")]
     OpenAi(commands::openai::Options),
