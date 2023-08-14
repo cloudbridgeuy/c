@@ -234,7 +234,7 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
         None
     };
 
-    // Get the CompleteRequestBody options from the command options.
+    // Get the RequestBody options from the command options.
     let request_options: RequestOptions = options.clone().into();
 
     // Create a new session.
@@ -266,7 +266,7 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
         session
     };
 
-    tracing::event!(tracing::Level::INFO, "Creating session...");
+    tracing::event!(tracing::Level::INFO, "Mergin command options...");
     // Create a new named or anonymous session.
     let mut session = merge_options(session, options)?;
 

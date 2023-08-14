@@ -22,7 +22,7 @@ pub enum Commands {
     Anthropic(commands::anthropic::CommandOptions),
     /// OpenAi Chat AI API
     #[clap(name = "openai", alias = "o")]
-    OpenAi(commands::openai::Options),
+    OpenAi(commands::openai::CommandOptions),
 }
 
 #[derive(ValueEnum, Debug, Clone, Copy)]

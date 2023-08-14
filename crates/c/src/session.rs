@@ -15,10 +15,12 @@ pub enum Vendor {
 }
 
 /// Chat LLM Role
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Role {
     #[default]
     Human,
+    User,
     Assistant,
     System,
 }

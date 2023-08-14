@@ -1,7 +1,4 @@
-use std::env;
-use std::fs;
 use std::ops::RangeInclusive;
-use std::path;
 
 use clap::{Parser, ValueEnum};
 use color_eyre::eyre::Result;
@@ -13,62 +10,31 @@ use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::{Stream, StreamExt};
 use ulid::Ulid;
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Role {
-    #[default]
-    /// The user is a human
-    User,
-    /// The user is a bot
-    Assistant,
-    /// System message prompt
-    System,
-}
+use crate::session::{Message, Role, Session, Vendor};
 
 /// Stores a message.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Message {
+pub struct CompletionMessage {
     pub role: Role,
     pub content: String,
 }
 
-impl Message {
+impl CompletionMessage {
     /// Creates a new message.
     pub fn new(content: String, role: Role) -> Self {
         Self { content, role }
     }
 }
 
-/// Stores a history message.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct HistoryMessage {
-    pub role: Role,
-    pub content: String,
-    pub pin: bool,
-}
-
-impl HistoryMessage {
-    /// Creates a new message.
-    pub fn new(content: String, role: Role, pin: bool) -> Self {
-        Self { content, role, pin }
-    }
-}
-
-impl From<Message> for HistoryMessage {
-    fn from(messages: Message) -> Self {
-        HistoryMessage {
-            role: messages.role,
-            content: messages.content,
-            pin: false, // Default to false
-        }
-    }
-}
-
-impl From<HistoryMessage> for Message {
-    fn from(history_messages: HistoryMessage) -> Self {
-        Message {
-            role: history_messages.role,
-            content: history_messages.content,
+impl From<Message> for CompletionMessage {
+    fn from(message: Message) -> Self {
+        CompletionMessage {
+            role: if message.role == Role::Human {
+                Role::User
+            } else {
+                message.role
+            },
+            content: message.content,
         }
     }
 }
@@ -138,210 +104,6 @@ impl Meta {
     }
 }
 
-/// Represents a chat session.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Session {
-    id: String,
-    pub messages: Vec<HistoryMessage>,
-    pub options: CompletionOptions,
-    #[serde(skip)]
-    pub meta: Meta,
-}
-
-impl Session {
-    /// Creates a new session
-    fn new(id: String, path: String) -> Self {
-        Self {
-            id,
-            meta: Meta::new(path),
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new session from the anthropic command options.
-    pub fn from(options: Options) -> Result<Self> {
-        let mut session = if let Some(id) = options.session.clone() {
-            Self::load(id)?
-        } else {
-            let id = Ulid::new().to_string();
-            let home = env::var("C_ROOT").unwrap_or(env::var("HOME")?);
-            let path = format!("{home}/.c/sessions/anonymous/{id}.yaml");
-            Self::new(id, path)
-        };
-
-        session.merge_options(options)?;
-
-        Ok(session)
-    }
-
-    /// Tries to load a session from the filesystem.
-    pub fn load(id: String) -> Result<Self> {
-        let home = env::var("C_ROOT").unwrap_or(env::var("HOME")?);
-        let path = format!("{home}/.c/sessions/{id}.yaml");
-
-        let meta = Meta {
-            path: path.clone(),
-            ..Default::default()
-        };
-
-        let session = if fs::metadata(&path).is_ok() {
-            let mut session: Session = serde_yaml::from_str(&fs::read_to_string(&path)?)?;
-            session.meta = meta;
-            session
-        } else {
-            Self::new(id, path)
-        };
-
-        Ok(session)
-    }
-
-    /// Merges an options object into the session options.
-    pub fn merge_options(&mut self, options: Options) -> Result<()> {
-        if options.model.is_some() {
-            self.options.model = options.model.unwrap().as_str().to_string();
-        }
-
-        if options.max_tokens.is_some() {
-            self.options.max_tokens = options.max_tokens;
-        }
-
-        if options.max_supported_tokens.is_some() {
-            self.options.max_supported_tokens = options.max_supported_tokens;
-        }
-
-        if options.temperature.is_some() {
-            self.options.temperature = options.temperature;
-        }
-
-        if options.top_p.is_some() {
-            self.options.top_p = options.top_p;
-        }
-
-        if options.stop.is_some() {
-            self.options.stop = options.stop;
-        }
-
-        if options.presence_penalty.is_some() {
-            self.options.presence_penalty = options.presence_penalty;
-        }
-
-        if options.frequency_penalty.is_some() {
-            self.options.frequency_penalty = options.frequency_penalty;
-        }
-
-        if options.logit_bias.is_some() {
-            self.options.logit_bias = options.logit_bias;
-        }
-
-        if options.user.is_some() {
-            self.options.user = options.user;
-        }
-
-        if options.min_available_tokens.is_some() {
-            self.options.min_available_tokens = options.min_available_tokens;
-        }
-
-        if options.format.is_some() {
-            self.meta.format = options.format.unwrap();
-        }
-
-        if options.system.is_some() {
-            if let Some(m) = self.messages.first_mut() {
-                if m.role == Role::System {
-                    m.content = options.system.unwrap();
-                }
-            } else {
-                self.messages.insert(
-                    0,
-                    HistoryMessage {
-                        content: options.system.unwrap(),
-                        role: Role::System,
-                        pin: true,
-                    },
-                );
-            }
-        }
-
-        self.meta.key = options.openai_api_key;
-        self.meta.stream = options.stream;
-        self.meta.silent = options.silent;
-        self.meta.pin = options.pin;
-
-        Ok(())
-    }
-
-    /// Saves the session to the filesystem.
-    pub fn save(&self) -> Result<()> {
-        tracing::event!(
-            tracing::Level::INFO,
-            "saving session to {:?}",
-            self.meta.path
-        );
-        let parent = path::Path::new(&self.meta.path)
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap();
-
-        if !directory_exists(parent) {
-            fs::create_dir_all(parent)?;
-        }
-
-        fs::write(&self.meta.path, serde_yaml::to_string(&self)?)?;
-        Ok(())
-    }
-
-    /// Returns a valid list of messages for the completion to work.
-    pub fn complete_messages(&self) -> Result<Vec<Message>> {
-        let tokenizer = DefaultTokenizer::new();
-        let min = std::cmp::max(
-            self.options.min_available_tokens.unwrap_or(1000),
-            self.options.max_tokens.unwrap_or(0),
-        );
-        let max = self.options.max_supported_tokens.unwrap_or(4096) - min;
-        let messages = trim_messages(self.messages.clone(), max, &tokenizer)?;
-
-        Ok(messages)
-    }
-}
-
-/// Trim messages until the total number of tokens inside is less than the maximum.
-fn trim_messages(
-    mut messages: Vec<HistoryMessage>,
-    max: u32,
-    tokenizer: &DefaultTokenizer,
-) -> Result<Vec<Message>> {
-    let total_tokens: usize = messages
-        .iter()
-        .map(|m| tokenizer.encode(&m.content).len())
-        .sum();
-
-    if total_tokens as u32 <= max {
-        let messages: Vec<Message> = messages.into_iter().map(Message::from).collect();
-
-        return Ok(messages);
-    }
-
-    if let Some((index, _)) = messages
-        .iter()
-        .enumerate()
-        .find(|(_, m)| m.role != Role::System && !m.pin)
-    {
-        messages.remove(index);
-        trim_messages(messages, max, tokenizer)
-    } else {
-        Err(color_eyre::eyre::format_err!(
-            "Could not trim messages to fit the maximum number of tokens."
-        ))
-    }
-}
-
-/// Chacks if a directory exists.
-pub fn directory_exists(dir_name: &str) -> bool {
-    let p = path::Path::new(dir_name);
-    p.exists() && p.is_dir()
-}
-
 #[derive(ValueEnum, Debug, Default, Clone, Copy, Serialize, Deserialize)]
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "kebab-case")]
@@ -366,12 +128,21 @@ impl Model {
             Model::GPT35Turbo16K => "gpt-3.5-turbo-16k",
         }
     }
+
+    pub fn as_u32(&self) -> u32 {
+        match self {
+            Model::GPT4 => 8000,
+            Model::GPT432K => 32000,
+            Model::GPT35Turbo => 4000,
+            Model::GPT35Turbo16K => 16000,
+        }
+    }
 }
 
-#[derive(Debug, Serialize)]
-pub struct CompleteRequestBody {
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct RequestOptions {
     pub model: String,
-    pub messages: Vec<Message>,
+    pub messages: Vec<CompletionMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -392,6 +163,31 @@ pub struct CompleteRequestBody {
     pub user: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
+}
+
+impl From<CommandOptions> for RequestOptions {
+    fn from(options: CommandOptions) -> Self {
+        println!("options: {:?}", options);
+        Self {
+            model: options
+                .model
+                .as_ref()
+                .unwrap_or(&Model::default())
+                .as_str()
+                .to_string(),
+            messages: Vec::new(),
+            max_tokens: Some(options.max_tokens.unwrap_or(1000)),
+            stop: options.stop,
+            stream: options.stream,
+            temperature: options.temperature,
+            top_p: options.top_p,
+            n: options.n,
+            presence_penalty: options.presence_penalty,
+            frequency_penalty: options.frequency_penalty,
+            logit_bias: options.logit_bias,
+            user: options.user,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -431,7 +227,7 @@ pub struct ChunkMessage {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ChatChoice {
     pub index: u32,
-    pub message: Message,
+    pub message: CompletionMessage,
     #[serde(default)]
     pub finish_reason: Option<String>,
 }
@@ -444,7 +240,7 @@ pub struct ChatUsage {
 }
 
 #[derive(Default, Clone, Parser, Debug, Serialize, Deserialize)]
-pub struct Options {
+pub struct CommandOptions {
     /// The content of the message to be sent to the chatbot. You can also populate this value
     /// from stdin. If you pass a value here and pipe data from stdin, both will be sent to the
     /// API, stdin taking precedence.
@@ -499,9 +295,6 @@ pub struct Options {
     /// detect abuse.
     #[arg(long)]
     user: Option<String>,
-    /// The minimum available tokens left to the Model to construct the completion message.
-    #[arg(long)]
-    min_available_tokens: Option<u32>,
     /// The maximum number of tokens supporte by the model.
     #[arg(long)]
     max_supported_tokens: Option<u32>,
@@ -583,13 +376,12 @@ where
 }
 
 /// Runs the `openai` command.
-pub async fn run(mut options: Options) -> Result<()> {
+pub async fn run(mut options: CommandOptions) -> Result<()> {
     // Start the spinner animation
     let mut spinner = spinner::Spinner::new();
 
     // Finish parsing the options. Clap takes care of everything except reading the user prompt
     // from `stdin`.
-    tracing::event!(tracing::Level::INFO, "Parsing options");
     tracing::event!(tracing::Level::INFO, "Parsing prompt...");
     let prompt: Option<String> = if let Some(prompt) = options.prompt.take() {
         Some(if prompt == "-" {
@@ -603,14 +395,46 @@ pub async fn run(mut options: Options) -> Result<()> {
         None
     };
 
-    tracing::event!(tracing::Level::INFO, "Creating session...");
+    // Get the RequestBody options from the command options.
+    let request_options: RequestOptions = options.clone().into();
+
+    // Create a new session
+    // If the user provided a session name then we need to check it exist.
+    let session: Session<RequestOptions> = if let Some(session) = options.session.take() {
+        tracing::event!(tracing::Level::INFO, "Checking if session exists...");
+        if Session::<RequestOptions>::exists(&session) {
+            tracing::event!(tracing::Level::INFO, "Session exists, loading...");
+            let session: Session<RequestOptions> = Session::load(&session)?;
+            session
+        } else {
+            tracing::event!(tracing::Level::INFO, "Session does not exist, creating...");
+            let session: Session<RequestOptions> = Session::new(
+                session,
+                Vendor::OpenAI,
+                request_options,
+                options.model.unwrap_or(Model::default()).as_u32(),
+            );
+            session
+        }
+    } else {
+        tracing::event!(tracing::Level::INFO, "Creating anonymous session...");
+        let session: Session<RequestOptions> = Session::new(
+            Ulid::new().to_string(),
+            Vendor::OpenAI,
+            request_options,
+            options.model.unwrap_or(Model::default()).as_u32(),
+        );
+        session
+    };
+
+    tracing::event!(tracing::Level::INFO, "Mergin command options...");
     // Create a new named or anonymous session.
-    let mut session = Session::from(options)?;
+    let mut session = merge_options(session, options)?;
 
     // Add the new prompt message to the session messages, if one was provided.
     if let Some(prompt) = prompt {
-        let message = HistoryMessage::new(prompt, Role::User, session.meta.pin);
-        session.messages.push(message);
+        let message = Message::new(prompt, Role::User, session.meta.pin);
+        session.history.push(message);
     }
 
     // Call the completion endpoint with the current session.
@@ -642,8 +466,8 @@ pub async fn run(mut options: Options) -> Result<()> {
 
         // Save the response to the session.
         session
-            .messages
-            .push(HistoryMessage::new(acc, Role::Assistant, session.meta.pin));
+            .history
+            .push(Message::new(acc, Role::Assistant, session.meta.pin));
     } else {
         let response = complete(&session).await?;
 
@@ -651,7 +475,7 @@ pub async fn run(mut options: Options) -> Result<()> {
         print_output(&session.meta.format, &response)?;
 
         // Save the response to the session
-        session.messages.push(HistoryMessage::new(
+        session.history.push(Message::new(
             response.choices.get(0).unwrap().message.content.clone(),
             Role::Assistant,
             session.meta.pin,
@@ -668,21 +492,27 @@ pub async fn run(mut options: Options) -> Result<()> {
 }
 
 /// Completes the command by streaming the response.
-async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<Chunk>>> {
+async fn complete_stream(
+    session: &Session<RequestOptions>,
+) -> Result<impl Stream<Item = Result<Chunk>>> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
-    let body = serde_json::to_string(&CompleteRequestBody {
-        model: session.options.model.to_string(),
-        max_tokens: session.options.max_tokens,
-        stop: session.options.stop.clone(),
-        temperature: session.options.temperature,
-        top_p: session.options.top_p,
-        n: session.options.n,
-        logit_bias: session.options.logit_bias.clone(),
+    let body = serde_json::to_string(&RequestOptions {
+        model: session.last_request_options.model.to_string(),
+        max_tokens: session.last_request_options.max_tokens,
+        stop: session.last_request_options.stop.clone(),
+        temperature: session.last_request_options.temperature,
+        top_p: session.last_request_options.top_p,
+        n: session.last_request_options.n,
+        logit_bias: session.last_request_options.logit_bias.clone(),
         stream: session.meta.stream,
-        frequency_penalty: session.options.frequency_penalty,
-        presence_penalty: session.options.presence_penalty,
-        user: session.options.user.clone(),
-        messages: session.complete_messages()?,
+        frequency_penalty: session.last_request_options.frequency_penalty,
+        presence_penalty: session.last_request_options.presence_penalty,
+        user: session.last_request_options.user.clone(),
+        messages: complete_messages(
+            session.history.clone(),
+            session.max_supported_tokens,
+            session.last_request_options.max_tokens.unwrap_or(1000),
+        )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
 
@@ -750,21 +580,25 @@ async fn complete_stream(session: &Session) -> Result<impl Stream<Item = Result<
 }
 
 /// Completes the command without streaming the response.
-async fn complete(session: &Session) -> Result<Response> {
+async fn complete(session: &Session<RequestOptions>) -> Result<Response> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
-    let body = serde_json::to_string(&CompleteRequestBody {
-        model: session.options.model.to_string(),
-        max_tokens: session.options.max_tokens,
-        stop: session.options.stop.clone(),
-        temperature: session.options.temperature,
-        top_p: session.options.top_p,
-        n: session.options.n,
-        logit_bias: session.options.logit_bias.clone(),
+    let body = serde_json::to_string(&RequestOptions {
+        model: session.last_request_options.model.to_string(),
+        max_tokens: session.last_request_options.max_tokens,
+        stop: session.last_request_options.stop.clone(),
+        temperature: session.last_request_options.temperature,
+        top_p: session.last_request_options.top_p,
+        n: session.last_request_options.n,
+        logit_bias: session.last_request_options.logit_bias.clone(),
         stream: session.meta.stream,
-        frequency_penalty: session.options.frequency_penalty,
-        presence_penalty: session.options.presence_penalty,
-        user: session.options.user.clone(),
-        messages: session.complete_messages()?,
+        frequency_penalty: session.last_request_options.frequency_penalty,
+        presence_penalty: session.last_request_options.presence_penalty,
+        user: session.last_request_options.user.clone(),
+        messages: complete_messages(
+            session.history.clone(),
+            session.max_supported_tokens,
+            session.last_request_options.max_tokens.unwrap_or(1000),
+        )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
 
@@ -805,4 +639,123 @@ fn print_output(format: &crate::Output, response: &Response) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Merges an options object into the session options.
+pub fn merge_options(
+    mut session: Session<RequestOptions>,
+    options: CommandOptions,
+) -> Result<Session<RequestOptions>> {
+    if options.model.is_some() {
+        session.last_request_options.model = options.model.unwrap().as_str().to_string();
+        session.max_supported_tokens = options.model.unwrap().as_u32();
+    }
+
+    if options.max_tokens.is_some() {
+        session.last_request_options.max_tokens = options.max_tokens;
+    }
+
+    if options.max_supported_tokens.is_some() {
+        session.max_supported_tokens = options.max_supported_tokens.unwrap();
+    }
+
+    if options.temperature.is_some() {
+        session.last_request_options.temperature = options.temperature;
+    }
+
+    if options.top_p.is_some() {
+        session.last_request_options.top_p = options.top_p;
+    }
+
+    if options.stop.is_some() {
+        session.last_request_options.stop = options.stop;
+    }
+
+    if options.presence_penalty.is_some() {
+        session.last_request_options.presence_penalty = options.presence_penalty;
+    }
+
+    if options.frequency_penalty.is_some() {
+        session.last_request_options.frequency_penalty = options.frequency_penalty;
+    }
+
+    if options.logit_bias.is_some() {
+        session.last_request_options.logit_bias = options.logit_bias;
+    }
+
+    if options.user.is_some() {
+        session.last_request_options.user = options.user;
+    }
+
+    if options.format.is_some() {
+        session.meta.format = options.format.unwrap();
+    }
+
+    if options.system.is_some() {
+        if let Some(m) = session.history.first_mut() {
+            if m.role == Role::System {
+                m.content = options.system.unwrap();
+            }
+        } else {
+            session.history.insert(
+                0,
+                Message {
+                    content: options.system.unwrap(),
+                    role: Role::System,
+                    pin: true,
+                },
+            );
+        }
+    }
+
+    session.meta.key = options.openai_api_key;
+    session.meta.stream = options.stream;
+    session.meta.silent = options.silent;
+    session.meta.pin = options.pin;
+
+    Ok(session)
+}
+
+/// Returns a valid list of messages for the completion to work.
+pub fn complete_messages(
+    messages: Vec<Message>,
+    max_supported_tokens: u32,
+    max_tokens_to_sample: u32,
+) -> Result<Vec<CompletionMessage>> {
+    let tokenizer = DefaultTokenizer::new();
+    let max = max_supported_tokens - max_tokens_to_sample;
+    let messages = trim_messages(messages, max, &tokenizer)?;
+
+    Ok(messages.into_iter().map(CompletionMessage::from).collect())
+}
+
+/// Trim messages until the total number of tokens inside is less than the maximum.
+fn trim_messages(
+    mut messages: Vec<Message>,
+    max: u32,
+    tokenizer: &DefaultTokenizer,
+) -> Result<Vec<Message>> {
+    let total_tokens: usize = messages
+        .iter()
+        .map(|m| tokenizer.encode(&m.content).len())
+        .sum();
+
+    if total_tokens as u32 <= max {
+        let messages: Vec<Message> = messages.into_iter().map(Message::from).collect();
+
+        return Ok(messages);
+    }
+
+    if let Some((index, _)) = messages
+        .iter()
+        .enumerate()
+        .find(|(_, m)| m.role != Role::System && !m.pin)
+    {
+        messages.remove(index);
+        trim_messages(messages, max, tokenizer)
+    } else {
+        Err(color_eyre::eyre::format_err!(
+            "Could not trim messages to fit the maximum number of tokens."
+        ))
+    }
 }
