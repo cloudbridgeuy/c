@@ -70,7 +70,6 @@ pub struct RequestOptions {
 
 impl From<CommandOptions> for RequestOptions {
     fn from(options: CommandOptions) -> Self {
-        println!("options: {:?}", options);
         Self {
             model: options
                 .model
