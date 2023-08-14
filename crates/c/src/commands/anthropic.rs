@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::{Stream, StreamExt};
-use ulid::Ulid;
 
 use crate::session::{Message, Role, Session, Vendor};
 
