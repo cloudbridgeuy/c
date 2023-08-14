@@ -89,6 +89,33 @@ impl From<CommandOptions> for RequestOptions {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct SessionOptions {
+    pub model: String,
+    max_tokens_to_sample: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_sequences: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_k: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_p: Option<f32>,
+}
+
+impl From<RequestOptions> for SessionOptions {
+    fn from(options: RequestOptions) -> Self {
+        Self {
+            model: options.model.to_string(),
+            stop_sequences: options.stop_sequences,
+            temperature: options.temperature,
+            top_k: options.top_k,
+            top_p: options.top_p,
+            max_tokens_to_sample: options.max_tokens_to_sample,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Response {
     pub completion: String,
     pub stop_reason: String,
@@ -235,31 +262,32 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
 
     // Get the RequestBody options from the command options.
     let request_options: RequestOptions = options.clone().into();
+    let session_options: SessionOptions = request_options.clone().into();
 
     // Create a new session.
     // If the user provided a session name then we need to check if it exists.
-    let session: Session<RequestOptions> = if let Some(session) = options.session.take() {
+    let session: Session<SessionOptions> = if let Some(session) = options.session.take() {
         tracing::event!(tracing::Level::INFO, "Checking if session exists...");
-        if Session::<RequestOptions>::exists(&session) {
+        if Session::<SessionOptions>::exists(&session) {
             tracing::event!(tracing::Level::INFO, "Session exists, loading...");
-            let session: Session<RequestOptions> = Session::load(&session)?;
+            let session: Session<SessionOptions> = Session::load(&session)?;
             session
         } else {
             tracing::event!(tracing::Level::INFO, "Session does not exist, creating...");
-            let session: Session<RequestOptions> = Session::new(
+            let session: Session<SessionOptions> = Session::new(
                 session,
                 Vendor::Anthropic,
-                request_options,
+                session_options,
                 options.model.unwrap_or(Model::default()).as_u32(),
             );
             session
         }
     } else {
         tracing::event!(tracing::Level::INFO, "Creating anonymous session...");
-        let session: Session<RequestOptions> = Session::new(
+        let session: Session<SessionOptions> = Session::new(
             Ulid::new().to_string(),
             Vendor::Anthropic,
-            request_options,
+            session_options,
             options.model.unwrap_or(Model::default()).as_u32(),
         );
         session
@@ -376,21 +404,12 @@ pub fn complete_prompt(
 
 /// Merges an options object into the session options.
 pub fn merge_options(
-    mut session: Session<RequestOptions>,
+    mut session: Session<SessionOptions>,
     options: CommandOptions,
-) -> Result<Session<RequestOptions>> {
+) -> Result<Session<SessionOptions>> {
     if options.model.is_some() {
-        session.last_request_options.model = options.model.unwrap().as_str().to_string();
+        session.options.model = options.model.unwrap().as_str().to_string();
         session.max_supported_tokens = options.model.unwrap().as_u32();
-    }
-
-    if options.prompt.is_some() {
-        session.last_request_options.prompt = options.prompt.unwrap();
-    }
-
-    if options.max_tokens_to_sample.is_some() {
-        session.last_request_options.max_tokens_to_sample =
-            options.max_tokens_to_sample.unwrap_or(1000);
     }
 
     if options.max_supported_tokens.is_some() {
@@ -398,19 +417,19 @@ pub fn merge_options(
     }
 
     if options.temperature.is_some() {
-        session.last_request_options.temperature = options.temperature;
+        session.options.temperature = options.temperature;
     }
 
     if options.top_k.is_some() {
-        session.last_request_options.top_k = options.top_k;
+        session.options.top_k = options.top_k;
     }
 
     if options.top_p.is_some() {
-        session.last_request_options.top_p = options.top_p;
+        session.options.top_p = options.top_p;
     }
 
     if options.stop_sequences.is_some() {
-        session.last_request_options.stop_sequences = options.stop_sequences;
+        session.options.stop_sequences = options.stop_sequences;
     }
 
     if options.format.is_some() {
@@ -427,21 +446,21 @@ pub fn merge_options(
 
 /// Completes the command by streaming the response.
 async fn complete_stream(
-    session: &Session<RequestOptions>,
+    session: &Session<SessionOptions>,
 ) -> Result<impl Stream<Item = Result<Chunk>>> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
     let body = serde_json::to_string(&RequestOptions {
-        model: session.last_request_options.model.to_string(),
-        max_tokens_to_sample: session.last_request_options.max_tokens_to_sample,
-        stop_sequences: session.last_request_options.stop_sequences.clone(),
-        temperature: session.last_request_options.temperature,
-        top_k: session.last_request_options.top_k,
-        top_p: session.last_request_options.top_p,
+        model: session.options.model.to_string(),
+        max_tokens_to_sample: session.options.max_tokens_to_sample,
+        stop_sequences: session.options.stop_sequences.clone(),
+        temperature: session.options.temperature,
+        top_k: session.options.top_k,
+        top_p: session.options.top_p,
         stream: session.meta.stream,
         prompt: complete_prompt(
             session.history.clone(),
             session.max_supported_tokens,
-            session.last_request_options.max_tokens_to_sample,
+            session.options.max_tokens_to_sample,
         )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
@@ -533,20 +552,20 @@ async fn complete_stream(
 }
 
 /// Completes the command without streaming the response.
-async fn complete(session: &Session<RequestOptions>) -> Result<Response> {
+async fn complete(session: &Session<SessionOptions>) -> Result<Response> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
     let body = serde_json::to_string(&RequestOptions {
-        model: session.last_request_options.model.to_string(),
-        max_tokens_to_sample: session.last_request_options.max_tokens_to_sample,
-        stop_sequences: session.last_request_options.stop_sequences.clone(),
-        temperature: session.last_request_options.temperature,
-        top_k: session.last_request_options.top_k,
-        top_p: session.last_request_options.top_p,
+        model: session.options.model.to_string(),
+        max_tokens_to_sample: session.options.max_tokens_to_sample,
+        stop_sequences: session.options.stop_sequences.clone(),
+        temperature: session.options.temperature,
+        top_k: session.options.top_k,
+        top_p: session.options.top_p,
         stream: session.meta.stream,
         prompt: complete_prompt(
             session.history.clone(),
             session.max_supported_tokens,
-            session.last_request_options.max_tokens_to_sample,
+            session.options.max_tokens_to_sample,
         )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);

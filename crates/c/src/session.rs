@@ -57,7 +57,7 @@ pub struct Session<T: Default> {
     id: String,
     vendor: Vendor,
     pub history: Vec<Message>,
-    pub last_request_options: T,
+    pub options: T,
     pub max_supported_tokens: u32,
     #[serde(skip)]
     pub meta: Meta,
@@ -72,7 +72,7 @@ impl<T: Default + Serialize + for<'a> Deserialize<'a>> Session<T> {
             id,
             vendor,
             max_supported_tokens,
-            last_request_options: options,
+            options,
             meta: Meta {
                 path,
                 ..Default::default()

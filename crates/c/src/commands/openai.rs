@@ -139,7 +139,7 @@ impl Model {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RequestOptions {
     pub model: String,
     pub messages: Vec<CompletionMessage>,
@@ -165,31 +165,6 @@ pub struct RequestOptions {
     pub max_tokens: Option<u32>,
 }
 
-// pub struct SessionOptions {
-//     pub model: String,
-//     pub messages: Vec<CompletionMessage>,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub temperature: Option<f32>,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub top_p: Option<f32>,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub n: Option<u32>,
-//     #[serde(skip_serializing_if = "std::ops::Not::not")]
-//     pub stream: bool,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     stop: Option<Vec<String>>,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     presence_penalty: Option<f32>,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     frequency_penalty: Option<f32>,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub logit_bias: Option<Vec<(u32, f32)>>,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub user: Option<String>,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub max_tokens: Option<u32>,
-// }
-
 impl From<CommandOptions> for RequestOptions {
     fn from(options: CommandOptions) -> Self {
         Self {
@@ -203,6 +178,46 @@ impl From<CommandOptions> for RequestOptions {
             max_tokens: Some(options.max_tokens.unwrap_or(1000)),
             stop: options.stop,
             stream: options.stream,
+            temperature: options.temperature,
+            top_p: options.top_p,
+            n: options.n,
+            presence_penalty: options.presence_penalty,
+            frequency_penalty: options.frequency_penalty,
+            logit_bias: options.logit_bias,
+            user: options.user,
+        }
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct SessionOptions {
+    pub model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub n: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stop: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    presence_penalty: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    frequency_penalty: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logit_bias: Option<Vec<(u32, f32)>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<u32>,
+}
+
+impl From<RequestOptions> for SessionOptions {
+    fn from(options: RequestOptions) -> Self {
+        Self {
+            model: options.model,
+            max_tokens: options.max_tokens,
+            stop: options.stop,
             temperature: options.temperature,
             top_p: options.top_p,
             n: options.n,
@@ -421,31 +436,32 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
 
     // Get the RequestBody options from the command options.
     let request_options: RequestOptions = options.clone().into();
+    let session_options: SessionOptions = request_options.clone().into();
 
     // Create a new session
     // If the user provided a session name then we need to check it exist.
-    let session: Session<RequestOptions> = if let Some(session) = options.session.take() {
+    let session: Session<SessionOptions> = if let Some(session) = options.session.take() {
         tracing::event!(tracing::Level::INFO, "Checking if session exists...");
         if Session::<RequestOptions>::exists(&session) {
             tracing::event!(tracing::Level::INFO, "Session exists, loading...");
-            let session: Session<RequestOptions> = Session::load(&session)?;
+            let session: Session<SessionOptions> = Session::load(&session)?;
             session
         } else {
             tracing::event!(tracing::Level::INFO, "Session does not exist, creating...");
-            let session: Session<RequestOptions> = Session::new(
+            let session: Session<SessionOptions> = Session::new(
                 session,
                 Vendor::OpenAI,
-                request_options,
+                session_options,
                 options.model.unwrap_or(Model::default()).as_u32(),
             );
             session
         }
     } else {
         tracing::event!(tracing::Level::INFO, "Creating anonymous session...");
-        let session: Session<RequestOptions> = Session::new(
+        let session: Session<SessionOptions> = Session::new(
             Ulid::new().to_string(),
             Vendor::OpenAI,
-            request_options,
+            session_options,
             options.model.unwrap_or(Model::default()).as_u32(),
         );
         session
@@ -517,25 +533,25 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
 
 /// Completes the command by streaming the response.
 async fn complete_stream(
-    session: &Session<RequestOptions>,
+    session: &Session<SessionOptions>,
 ) -> Result<impl Stream<Item = Result<Chunk>>> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
     let body = serde_json::to_string(&RequestOptions {
-        model: session.last_request_options.model.to_string(),
-        max_tokens: session.last_request_options.max_tokens,
-        stop: session.last_request_options.stop.clone(),
-        temperature: session.last_request_options.temperature,
-        top_p: session.last_request_options.top_p,
-        n: session.last_request_options.n,
-        logit_bias: session.last_request_options.logit_bias.clone(),
+        model: session.options.model.to_string(),
+        max_tokens: session.options.max_tokens,
+        stop: session.options.stop.clone(),
+        temperature: session.options.temperature,
+        top_p: session.options.top_p,
+        n: session.options.n,
+        logit_bias: session.options.logit_bias.clone(),
         stream: session.meta.stream,
-        frequency_penalty: session.last_request_options.frequency_penalty,
-        presence_penalty: session.last_request_options.presence_penalty,
-        user: session.last_request_options.user.clone(),
+        frequency_penalty: session.options.frequency_penalty,
+        presence_penalty: session.options.presence_penalty,
+        user: session.options.user.clone(),
         messages: complete_messages(
             session.history.clone(),
             session.max_supported_tokens,
-            session.last_request_options.max_tokens.unwrap_or(1000),
+            session.options.max_tokens.unwrap_or(1000),
         )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
@@ -604,24 +620,24 @@ async fn complete_stream(
 }
 
 /// Completes the command without streaming the response.
-async fn complete(session: &Session<RequestOptions>) -> Result<Response> {
+async fn complete(session: &Session<SessionOptions>) -> Result<Response> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
     let body = serde_json::to_string(&RequestOptions {
-        model: session.last_request_options.model.to_string(),
-        max_tokens: session.last_request_options.max_tokens,
-        stop: session.last_request_options.stop.clone(),
-        temperature: session.last_request_options.temperature,
-        top_p: session.last_request_options.top_p,
-        n: session.last_request_options.n,
-        logit_bias: session.last_request_options.logit_bias.clone(),
+        model: session.options.model.to_string(),
+        max_tokens: session.options.max_tokens,
+        stop: session.options.stop.clone(),
+        temperature: session.options.temperature,
+        top_p: session.options.top_p,
+        n: session.options.n,
+        logit_bias: session.options.logit_bias.clone(),
         stream: session.meta.stream,
-        frequency_penalty: session.last_request_options.frequency_penalty,
-        presence_penalty: session.last_request_options.presence_penalty,
-        user: session.last_request_options.user.clone(),
+        frequency_penalty: session.options.frequency_penalty,
+        presence_penalty: session.options.presence_penalty,
+        user: session.options.user.clone(),
         messages: complete_messages(
             session.history.clone(),
             session.max_supported_tokens,
-            session.last_request_options.max_tokens.unwrap_or(1000),
+            session.options.max_tokens.unwrap_or(1000),
         )?,
     })?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
@@ -667,16 +683,16 @@ fn print_output(format: &crate::Output, response: &Response) -> Result<()> {
 
 /// Merges an options object into the session options.
 pub fn merge_options(
-    mut session: Session<RequestOptions>,
+    mut session: Session<SessionOptions>,
     options: CommandOptions,
-) -> Result<Session<RequestOptions>> {
+) -> Result<Session<SessionOptions>> {
     if options.model.is_some() {
-        session.last_request_options.model = options.model.unwrap().as_str().to_string();
+        session.options.model = options.model.unwrap().as_str().to_string();
         session.max_supported_tokens = options.model.unwrap().as_u32();
     }
 
     if options.max_tokens.is_some() {
-        session.last_request_options.max_tokens = options.max_tokens;
+        session.options.max_tokens = options.max_tokens;
     }
 
     if options.max_supported_tokens.is_some() {
@@ -684,31 +700,31 @@ pub fn merge_options(
     }
 
     if options.temperature.is_some() {
-        session.last_request_options.temperature = options.temperature;
+        session.options.temperature = options.temperature;
     }
 
     if options.top_p.is_some() {
-        session.last_request_options.top_p = options.top_p;
+        session.options.top_p = options.top_p;
     }
 
     if options.stop.is_some() {
-        session.last_request_options.stop = options.stop;
+        session.options.stop = options.stop;
     }
 
     if options.presence_penalty.is_some() {
-        session.last_request_options.presence_penalty = options.presence_penalty;
+        session.options.presence_penalty = options.presence_penalty;
     }
 
     if options.frequency_penalty.is_some() {
-        session.last_request_options.frequency_penalty = options.frequency_penalty;
+        session.options.frequency_penalty = options.frequency_penalty;
     }
 
     if options.logit_bias.is_some() {
-        session.last_request_options.logit_bias = options.logit_bias;
+        session.options.logit_bias = options.logit_bias;
     }
 
     if options.user.is_some() {
-        session.last_request_options.user = options.user;
+        session.options.user = options.user;
     }
 
     if options.format.is_some() {
