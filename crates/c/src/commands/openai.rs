@@ -779,8 +779,6 @@ fn trim_messages(
         .sum();
 
     if total_tokens as u32 <= max {
-        let messages: Vec<Message> = messages.into_iter().map(Message::from).collect();
-
         return Ok(messages);
     }
 

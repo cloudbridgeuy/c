@@ -6,7 +6,7 @@ use color_eyre::eyre::Result;
 use serde::{Deserialize, Serialize};
 
 /// Chat LLM Vendor
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub enum Vendor {
     #[default]
     OpenAI,
@@ -41,7 +41,7 @@ impl Message {
 }
 
 /// Important data that are provided on each invocation
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Meta {
     path: String,
     pub silent: bool,
@@ -52,7 +52,7 @@ pub struct Meta {
 }
 
 /// Represents a chat session
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Session<T: Default> {
     id: String,
     vendor: Vendor,

@@ -19,6 +19,7 @@ async fn run() -> color_eyre::eyre::Result<()> {
             c::commands::anthropic::run(options).await?;
         }
         Some(c::Commands::OpenAi(options)) => c::commands::openai::run(options).await?,
+        Some(c::Commands::Vertex(options)) => c::commands::vertex::run(options).await?,
         None => {
             color_eyre::eyre::bail!(
                 "No subcommand provided. Use --help to see available subcommands."
