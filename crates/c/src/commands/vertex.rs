@@ -132,7 +132,8 @@ impl From<Session<SessionOptions>> for RequestOptions {
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct SessionOptions {
-    endpoint: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    endpoint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     context: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -150,7 +151,7 @@ pub struct SessionOptions {
 impl From<CommandOptions> for SessionOptions {
     fn from(options: CommandOptions) -> Self {
         Self {
-            endpoint: format!("https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/us-central1/publishers/google/models/{}:predict", options.gcp_region, options.gcp_project, options.model.unwrap().as_str()),
+            endpoint: Some(format!("https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/us-central1/publishers/google/models/{}:predict", options.gcp_region, options.gcp_project, options.model.unwrap().as_str())),
             context: None,
             model: None,
             max_output_tokens: options.max_output_tokens,
@@ -229,6 +230,7 @@ pub struct CommandOptions {
     /// The prompt you want Claude to complete.
     prompt: Option<String>,
     /// The context you want to provide.
+    #[arg(long)]
     context: Option<String>,
     /// Chat session name. Will be used to store previous session interactions.
     #[arg(long)]
@@ -477,6 +479,10 @@ pub fn merge_options(
     mut session: Session<SessionOptions>,
     options: CommandOptions,
 ) -> Result<Session<SessionOptions>> {
+    if options.context.is_some() {
+        session.options.context = options.context;
+    }
+
     if options.model.is_some() {
         session.options.model = options.model;
         session.max_supported_tokens = options.model.unwrap().as_u32();
@@ -543,11 +549,21 @@ async fn complete(session: &Session<SessionOptions>) -> Result<Response> {
     tracing::event!(
         tracing::Level::INFO,
         "Sending request to {}",
-        &session.options.endpoint
+        &session
+            .options
+            .endpoint
+            .clone()
+            .unwrap_or("INVAID_ENDPOINT".to_string())
     );
 
     let res = client
-        .post(&session.options.endpoint)
+        .post(
+            &session
+                .options
+                .endpoint
+                .clone()
+                .unwrap_or("INVAID_ENDPOINT".to_string()),
+        )
         .headers(headers)
         .body(json.clone())
         .send()
