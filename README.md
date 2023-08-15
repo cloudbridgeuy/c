@@ -374,82 +374,83 @@ I took all of these requirements and I build this `bash` function called `chat`:
 ```bash
 # Handy function to interact with `c` My custom LLM chat cli.
 function chat() {
-	if [ -z "$1" ]; then
-		session="$(ls ~/.c/sessions | awk -F'.' '{print $1}' | fzf)"
-	else
-		session="$1"
-		shift
-	fi
+  if [ -z "$1" ]; then
+    session="$(find ~/.c/sessions -name "*.yaml" -maxdepth 1 -exec basename {} \; | awk -F'.' '{print $1}' | fzf)"
+  else
+    session="$1"
+    shift
+  fi
 
-	if [[ "$session" == "" ]]; then
-		echo "No session selected"
-		return 1
-	fi
+  if [[ "$session" == "" ]]; then
+    echo "No session selected"
+    return 1
+  fi
 
-	if [[ "$1" == "" ]]; then
-		tmp="$(mktemp)"
+  if [[ "$1" == "edit" ]]; then
+    nvim ~/.c/sessions/"$session".yaml
+    return 0
+  fi
 
-		if [ ! -f "~/.c/sessions/${session}.yaml" ]; then
-			one="$(yq '.history[-2]' ~/.c/sessions/$session.yaml)"
-			two="$(yq '.history[-1]' ~/.c/sessions/$session.yaml)"
+  if [[ "$1" == "" ]]; then
+    tmp="$(mktemp)"
 
-			if [[ -n "$one" ]]; then
-				echo "# $(yq '.role' <<<"$one")" >>"$tmp"
-				echo >> "$tmp"
-				echo "$(yq '.content' <<<"$one")" >>"$tmp"
-			fi
+    if [ ! -f "~/.c/sessions/${session}.yaml" ]; then
+      one="$(yq '.history[-2]' ~/.c/sessions/$session.yaml)"
+      two="$(yq '.history[-1]' ~/.c/sessions/$session.yaml)"
 
-				echo >> "$tmp"
-
-			if [[ -n "$two" ]]; then
-				echo "# $(yq '.role' <<<"$two")" >>"$tmp"
-				echo >> "$tmp"
-				echo "$(yq '.content' <<<"$two")" >>"$tmp"
-			fi
+      if [[ -n "$one" ]]; then
+        echo "# $(yq '.role' <<<"$one")" >>"$tmp"
+        echo >> "$tmp"
+        echo "$(yq '.content' <<<"$one")" >>"$tmp"
+      fi
 
 			echo >> "$tmp"
-			echo '<EOF/>' >> "$tmp"
-			echo >> "$tmp"
-			echo >> "$tmp"
-		else
-			echo "Can't find file ~/.c/sessions/$session.yaml"
-		fi
 
-		nvim +'normal Gzt' +'set filetype=markdown' +'startinsert' "$tmp"
+      if [[ -n "$two" ]]; then
+        echo "# $(yq '.role' <<<"$two")" >>"$tmp"
+        echo >> "$tmp"
+        echo "$(yq '.content' <<<"$two")" >>"$tmp"
+      fi
 
-		if [[ $! -ne 0 ]]; then
-			return $!
-		fi
+      echo >> "$tmp"
+      echo '<EOF/>' >> "$tmp"
+      echo >> "$tmp"
+      echo >> "$tmp"
+    else
+      echo "Can't find file ~/.c/sessions/$session.yaml"
+    fi
 
-		prompt="$(grep -n '<EOF/>' "$tmp" | awk -F':' '{ print $1 }' | xargs -n1 -I{} expr 2 + {} | xargs -n1 -I{} tail -n +{} "$tmp")"
-		c anthropic --session "$session" --stream "$prompt"
-		return $!
-	fi
+    nvim +'normal Gzt' +'set filetype=markdown' +'startinsert' "$tmp"
 
-	if [[ "$1" == "edit" ]]; then
-		nvim ~/.c/sessions/"$session".yaml
-		return 0
-	fi
+    if [[ $! -ne 0 ]]; then
+      return $!
+    fi
 
-	vendor="$(yq '.vendor' ~/.c/sessions/"$session".yaml)"
+    prompt="$(grep -an '<EOF/>' "$tmp" | awk -F':' '{ print $1 }' | xargs -n1 -I{} expr 2 + {} | xargs -n1 -I{} tail -n +{} "$tmp")"
+  else
+    prompt="$@"
+  fi
 
-	case "$vendor" in
-		Anthropic)
-			subcommand="anthropic"
-			;;
-		OpenAI)
-			subcommand="openai"
-			;;
-		Google)
-			subcommand="vertex"
-			;;
-		*)
-			echo "Unknown vendor $vendor"
-			return 1
-			;;
-	esac
+  vendor="$(yq '.vendor' ~/.c/sessions/"$session".yaml)"
 
-	c $subcommand --session "$session" --stream "$@"
+  case "$vendor" in
+    Anthropic)
+      subcommand="anthropic"
+      ;;
+    OpenAI)
+      subcommand="openai"
+      ;;
+    Google)
+      refresh-c-gcp-key
+      subcommand="vertex"
+      ;;
+    *)
+      echo "Unknown vendor $vendor"
+      return 1
+      ;;
+  esac
+
+  c $subcommand --session "$session" --stream "$prompt" > $tmp
 }
 ```
 
@@ -533,12 +534,9 @@ history:
     BEGIN DIALOGUE
   role: human
   pin: true
-- content: |-
-		Hello! My name is ${NAME}. I'm an AI assistant focused on Software Engineering using Rust.
-		Here to help you with ${WORK}.
-		How can I help you?
-  role: assistant
+- content: 'Hello! My name is ${NAME}. Here to help you with ${WORK}.'
   pin: true
+  role: assistant
 options:
   model: claude-2
   max_tokens_to_sample: 1000
@@ -597,12 +595,9 @@ history:
     BEGIN DIALOGUE
   role: human
   pin: true
-- content: |-
-		Hello! My name is ${NAME}. I'm an AI assistant focused on Software Engineering using Rust.
-		Here to help you with ${WORK}.
-		How can I help you?
-  role: assistant
+- content: 'Hello! My name is ${NAME}. Here to help you with ${WORK}.'
   pin: true
+  role: assistant
 options:
   model: claude-2
   max_tokens_to_sample: 1000
@@ -610,9 +605,11 @@ options:
 max_supported_tokens: 100000
 EOF
 )" > ~/.c/sessions/rusty.yaml
+```
 
-# Read back the generated file
-cat ~/.c/sessions/rusty.yaml
+Here's how the session file `~/.c/sessions/rusty.yaml` looks like.
+
+```yaml
 id: rusty
 vendor: Anthropic
 history:
@@ -653,10 +650,7 @@ history:
     BEGIN DIALOGUE
   role: human
   pin: true
-- content: |-
-		Hello! My name is rusty. I'm an AI assistant focused on Software Engineering using Rust.
-		Here to help you with looking for help developing applications using the programming language Rust.
-		How can I help you?
+- content: Hello! My name is rusty. Here to help you  developing applications using the programming language Rust.
   role: assistant
   pin: true
 options:
@@ -684,7 +678,7 @@ Here are some key facts about configuring a main function to work with the tokio
 
 - A basic tokio main function looks like:
 
-\`\`\`rust
+"""rust
 fn main() {
   let rt = tokio::runtime::Runtime::new().unwrap();
 
@@ -692,7 +686,7 @@ fn main() {
     // async tasks go here
   });
 }
-\`\`\`
+"""
 
 - The `rt.block_on` call runs the async block on the tokio runtime. Any async tasks spawned here will be executed on the runtime.
 
@@ -702,14 +696,14 @@ fn main() {
 
 Here is an example main function configured to work with tokio:
 
-\`\`\`rust
+"""rust
 use tokio;
 
 #[tokio::main]
 async fn main() {
   // async tasks go here
 }
-\`\`\`
+"""
 
 The `#[tokio::main]` macro sets up the tokio runtime and event loop automatically.
 ```
@@ -750,7 +744,6 @@ history:
 
     - Comment #1
     - Comment #2
-    ...
     """
 
     Here are some important rules for the interaction:
