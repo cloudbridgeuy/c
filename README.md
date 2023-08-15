@@ -144,7 +144,7 @@ Once you have all the necessary permissions, you can execute the `c` command on 
 LLM models:
 
 ```bash
-❯ c --help
+c --help
 Interact with OpenAI's ChatGPT through the terminal
 
 Usage: c [COMMAND]
@@ -169,7 +169,7 @@ through `stdin`.
 
 ```bash
 # Notice the `-` in place of the prompt.
-❯ cat <<-'EOF' | c vertex -
+cat <<-'EOF' | c vertex -
 I need a function to record the user voice using the default microphone.
 EOF
 ```
@@ -556,7 +556,7 @@ the programming language Rust'`, we'll get this.
 
 ```bash
 # Use `envsubst` to replace the values of `NAME` and `WORK`
-❯ NAME=rusty WORK='looking for help developing applications using the programming language Rust' envsubst <<<"$(cat <<-'EOF'
+NAME=rusty WORK='looking for help developing applications using the programming language Rust' envsubst <<<"$(cat <<-'EOF'
 id: ${NAME}
 vendor: Anthropic
 history:
@@ -612,7 +612,7 @@ EOF
 )" > ~/.c/sessions/rusty.yaml
 
 # Read back the generated file
-❯ cat ~/.c/sessions/rusty.yaml
+cat ~/.c/sessions/rusty.yaml
 id: rusty
 vendor: Anthropic
 history:
@@ -799,7 +799,7 @@ max_supported_tokens: 100000
 To use it, I stage the files I want to commit, and then run:
 
 ```bash
-❯ c a --session commity "$(git diff --staged)"
+c a --session commity "$(git diff --staged)"
 ```
 
 Here's an output I got while working on the repo:
@@ -884,7 +884,7 @@ max_supported_tokens: 100000
 Here's how I use it:
 
 ```bash
-❯ git log --pretty=format:"%h | %B %d" --date=iso-strict | sed '/'"$(git log --pretty=format:"%h | %B %d" --date=iso-strict | grep \(tag | head -n1 | tr -d ' )(tag:')"'/q' | chat releasy -
+git log --pretty=format:"%h | %B %d" --date=iso-strict | sed '/'"$(git log --pretty=format:"%h | %B %d" --date=iso-strict | grep \(tag | head -n1 | tr -d ' )(tag:')"'/q' | chat releasy -
 ```
 
 Output:
@@ -922,4 +922,3 @@ Output:
 
 - No changes
 ```
-
