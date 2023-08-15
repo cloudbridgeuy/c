@@ -509,6 +509,9 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
     } else {
         let response = complete(&session).await?;
 
+        // Stop the spinner.
+        spinner.stop();
+
         // Print the response output.
         print_output(&session.meta.format, &response)?;
 
@@ -522,9 +525,6 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
 
     // Save the session to a file.
     session.save()?;
-
-    // Stop the spinner.
-    spinner.stop();
 
     Ok(())
 }

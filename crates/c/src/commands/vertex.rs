@@ -159,12 +159,12 @@ pub struct Candidate {
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Citation {
-    start_index: u32,
-    end_index: u32,
-    url: String,
-    title: String,
-    license: String,
-    publication_date: String,
+    start_index: Option<u32>,
+    end_index: Option<u32>,
+    url: Option<String>,
+    title: Option<String>,
+    license: Option<String>,
+    publication_date: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -401,6 +401,9 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
 
     let response = complete(&session).await?;
 
+    // Stop the spinner.
+    spinner.stop();
+
     // Print the response output.
     print_output(&session.meta.format, &response)?;
 
@@ -421,9 +424,6 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
 
     // Save the session to a file.
     session.save()?;
-
-    // Stop the spinner.
-    spinner.stop();
 
     Ok(())
 }

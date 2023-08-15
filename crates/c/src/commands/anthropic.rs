@@ -23,6 +23,7 @@ pub struct Chunk {
 #[serde(rename_all = "kebab-case")]
 pub enum Model {
     #[default]
+    #[serde(rename = "claude-2")]
     Claude2,
     ClaudeV1,
     ClaudeV1_100k,
@@ -335,6 +336,9 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
     } else {
         let response = complete(&session).await?;
 
+        // Stop the spinner.
+        spinner.stop();
+
         // Print the response output.
         print_output(&session.meta.format, &response)?;
 
@@ -349,9 +353,6 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
     // Save the session to a file.
     session.save()?;
 
-    // Stop the spinner.
-    spinner.stop();
-
     Ok(())
 }
 
@@ -362,6 +363,7 @@ pub fn complete_prompt(
     max_tokens_to_sample: u32,
 ) -> Result<String> {
     let max = max_supported_tokens - max_tokens_to_sample;
+
     messages.push(Message::new("".to_string(), Role::Assistant, false));
 
     tracing::event!(
