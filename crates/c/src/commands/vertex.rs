@@ -104,22 +104,10 @@ impl From<CommandOptions> for RequestOptions {
 impl From<Session<SessionOptions>> for RequestOptions {
     fn from(session: Session<SessionOptions>) -> Self {
         Self {
-            instances: session
-                .history
-                .iter()
-                .map(|message| Instance {
-                    context: None,
-                    messages: vec![VertexMessage {
-                        content: message.content.clone(),
-                        author: match message.role {
-                            Role::Human => Author::User,
-                            Role::User => Author::User,
-                            Role::System => Author::Bot,
-                            Role::Assistant => Author::Bot,
-                        },
-                    }],
-                })
-                .collect(),
+            instances: vec![Instance {
+                context: Some(session.options.context.unwrap_or_default()),
+                messages: Vec::new(),
+            }],
             parameters: Parameters {
                 temperature: session.options.temperature,
                 max_output_tokens: session.options.max_output_tokens,
@@ -456,15 +444,11 @@ pub fn complete_messages(
 fn trim_messages(mut messages: Vec<Message>, max: u32) -> Result<Vec<Message>> {
     let total_tokens: usize = messages.iter().map(|m| m.content.len() * 4 / 3).sum();
 
-    if total_tokens as u32 <= max {
+    if total_tokens as u32 <= max && messages.len() % 2 == 1 {
         return Ok(messages);
     }
 
-    if let Some((index, _)) = messages
-        .iter()
-        .enumerate()
-        .find(|(_, m)| m.role != Role::System && !m.pin)
-    {
+    if let Some((index, _)) = messages.iter().enumerate().find(|(_, m)| !m.pin) {
         messages.remove(index);
         trim_messages(messages, max)
     } else {
