@@ -508,6 +508,7 @@ pub fn merge_options(
         session.meta.format = options.format.unwrap();
     }
 
+    session.options.endpoint = Some(format!("https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/us-central1/publishers/google/models/{}:predict", options.gcp_region, options.gcp_project, options.model.unwrap().as_str()));
     session.meta.key = options.gcp_key;
     session.meta.stream = false;
     session.meta.silent = options.silent;
