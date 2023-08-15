@@ -130,7 +130,7 @@ pub struct CommandOptions {
     max_supported_tokens: Option<u32>,
     /// Controls which version of Claude answers your request. Two model families are exposed
     /// Claude and Claude Instant.
-    #[clap(short, long, value_enum, default_value = "claude-v1")]
+    #[clap(short, long, value_enum)]
     model: Option<Model>,
     /// A maximum number of tokens to generate before stopping.
     #[arg(long, default_value = "1000")]

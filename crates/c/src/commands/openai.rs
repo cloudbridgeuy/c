@@ -190,7 +190,8 @@ impl From<CommandOptions> for RequestOptions {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct SessionOptions {
-    pub model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -214,7 +215,7 @@ pub struct SessionOptions {
 impl From<RequestOptions> for SessionOptions {
     fn from(options: RequestOptions) -> Self {
         Self {
-            model: options.model,
+            model: Some(options.model),
             max_tokens: options.max_tokens,
             stop: options.stop,
             temperature: options.temperature,
@@ -284,7 +285,7 @@ pub struct CommandOptions {
     /// API, stdin taking precedence.
     prompt: Option<String>,
     /// ID of the model to use. See the following link: https://platform.openai.com/docs/models/overview
-    #[clap(short, long, value_enum, default_value = "gpt4")]
+    #[clap(short, long, value_enum)]
     model: Option<Model>,
     /// Chat session name. Will be used to store previous session interactions.
     #[arg(long)]
@@ -535,7 +536,13 @@ async fn complete_stream(
 ) -> Result<impl Stream<Item = Result<Chunk>>> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
     let body = serde_json::to_string(&RequestOptions {
-        model: session.options.model.to_string(),
+        model: session
+            .options
+            .model
+            .clone()
+            .unwrap_or_default()
+            .as_str()
+            .to_string(),
         max_tokens: session.options.max_tokens,
         stop: session.options.stop.clone(),
         temperature: session.options.temperature,
@@ -621,7 +628,13 @@ async fn complete_stream(
 async fn complete(session: &Session<SessionOptions>) -> Result<Response> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
     let body = serde_json::to_string(&RequestOptions {
-        model: session.options.model.to_string(),
+        model: session
+            .options
+            .model
+            .clone()
+            .unwrap_or_default()
+            .as_str()
+            .to_string(),
         max_tokens: session.options.max_tokens,
         stop: session.options.stop.clone(),
         temperature: session.options.temperature,
@@ -685,7 +698,7 @@ pub fn merge_options(
     options: CommandOptions,
 ) -> Result<Session<SessionOptions>> {
     if options.model.is_some() {
-        session.options.model = options.model.unwrap().as_str().to_string();
+        session.options.model = Some(options.model.unwrap_or_default().as_str().to_string());
         session.max_supported_tokens = options.model.unwrap().as_u32();
     }
 
