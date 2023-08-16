@@ -2,7 +2,6 @@ use std::ops::RangeInclusive;
 
 use clap::{Parser, ValueEnum};
 use color_eyre::eyre::Result;
-use gpt_tokenizer::Default as DefaultTokenizer;
 use openai::client::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
@@ -466,7 +465,7 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
         session
     };
 
-    tracing::event!(tracing::Level::INFO, "Mergin command options...");
+    tracing::event!(tracing::Level::INFO, "Merging command options...");
     // Create a new named or anonymous session.
     let mut session = merge_options(session, options)?;
 
@@ -773,23 +772,26 @@ pub fn complete_messages(
     max_supported_tokens: u32,
     max_tokens_to_sample: u32,
 ) -> Result<Vec<CompletionMessage>> {
-    let tokenizer = DefaultTokenizer::new();
     let max = max_supported_tokens - max_tokens_to_sample;
-    let messages = trim_messages(messages, max, &tokenizer)?;
+
+    tracing::event!(
+        tracing::Level::INFO,
+        "max_supported_tokens: {:?}",
+        max_supported_tokens
+    );
+    tracing::event!(
+        tracing::Level::INFO,
+        "max_tokene_to_sample: {:?}",
+        max_tokens_to_sample
+    );
+    let messages = trim_messages(messages, max)?;
 
     Ok(messages.into_iter().map(CompletionMessage::from).collect())
 }
 
 /// Trim messages until the total number of tokens inside is less than the maximum.
-fn trim_messages(
-    mut messages: Vec<Message>,
-    max: u32,
-    tokenizer: &DefaultTokenizer,
-) -> Result<Vec<Message>> {
-    let total_tokens: usize = messages
-        .iter()
-        .map(|m| tokenizer.encode(&m.content).len())
-        .sum();
+fn trim_messages(mut messages: Vec<Message>, max: u32) -> Result<Vec<Message>> {
+    let total_tokens: usize = messages.iter().map(|m| m.content.len() * 4 / 3).sum();
 
     if total_tokens as u32 <= max {
         return Ok(messages);
@@ -801,7 +803,7 @@ fn trim_messages(
         .find(|(_, m)| m.role != Role::System && !m.pin)
     {
         messages.remove(index);
-        trim_messages(messages, max, tokenizer)
+        trim_messages(messages, max)
     } else {
         Err(color_eyre::eyre::format_err!(
             "Could not trim messages to fit the maximum number of tokens."
