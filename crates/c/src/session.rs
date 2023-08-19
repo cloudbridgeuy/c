@@ -44,6 +44,7 @@ impl Message {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Meta {
     path: String,
+    pub save: bool,
     pub silent: bool,
     pub stream: bool,
     pub pin: bool,
@@ -59,6 +60,7 @@ pub struct Session<T: Default> {
     pub history: Vec<Message>,
     pub options: T,
     pub max_supported_tokens: u32,
+    pub max_history: Option<u32>,
     #[serde(skip)]
     pub meta: Meta,
 }

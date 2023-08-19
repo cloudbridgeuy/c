@@ -171,6 +171,12 @@ pub struct CommandOptions {
     /// Response output format
     #[clap(short, long, default_value = "raw")]
     format: Option<crate::Output>,
+    /// Max history size to add to the user prompt.
+    #[clap(long)]
+    max_history: Option<u32>,
+    /// Whether to save the prompt and response to the history file.
+    #[clap(long)]
+    nosave: bool,
 }
 
 impl From<CommandOptions> for RequestOptions {
@@ -398,7 +404,9 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
     }
 
     // Save the session to a file.
-    session.save()?;
+    if session.meta.save {
+        session.save()?;
+    }
 
     Ok(())
 }
@@ -535,6 +543,10 @@ pub fn merge_options(
         session.max_supported_tokens = options.max_supported_tokens.unwrap();
     }
 
+    if options.max_history.is_some() {
+        session.max_history = options.max_history;
+    }
+
     if options.temperature.is_some() {
         session.options.temperature = options.temperature;
     }
@@ -584,6 +596,7 @@ pub fn merge_options(
         }
     }
 
+    session.meta.save = !options.nosave;
     session.meta.key = options.openai_api_key;
     session.meta.stream = options.stream;
     session.meta.silent = options.silent;
@@ -600,6 +613,8 @@ pub fn complete_messages(
 ) -> Result<Vec<CompletionMessage>> {
     let max = max_supported_tokens - max_tokens_to_sample;
 
+    tracing::event!(tracing::Level::INFO, "max: {:?}", max);
+
     tracing::event!(
         tracing::Level::INFO,
         "max_supported_tokens: {:?}",
@@ -607,7 +622,7 @@ pub fn complete_messages(
     );
     tracing::event!(
         tracing::Level::INFO,
-        "max_tokene_to_sample: {:?}",
+        "max_tokens_to_sample: {:?}",
         max_tokens_to_sample
     );
     let messages = trim_messages(messages, max)?;
@@ -618,6 +633,7 @@ pub fn complete_messages(
 /// Trim messages until the total number of tokens inside is less than the maximum.
 fn trim_messages(mut messages: Vec<Message>, max: u32) -> Result<Vec<Message>> {
     let total_tokens: usize = messages.iter().map(|m| m.content.len() * 4 / 3).sum();
+    tracing::event!(tracing::Level::INFO, "total_tokens: {:?}", total_tokens);
 
     if total_tokens as u32 <= max {
         return Ok(messages);
@@ -669,8 +685,12 @@ fn create_body(session: &Session<SessionOptions>) -> Result<String> {
 
     request_options.messages = complete_messages(
         session.history.clone(),
-        session.max_supported_tokens,
-        session.options.max_tokens.unwrap_or(1000),
+        session.max_history.unwrap_or(session.max_supported_tokens),
+        if session.max_history.is_some() {
+            0
+        } else {
+            request_options.max_tokens.unwrap_or(1000)
+        },
     )?;
 
     match serde_json::to_string(&request_options) {

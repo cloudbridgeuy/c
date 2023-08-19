@@ -169,6 +169,12 @@ pub struct CommandOptions {
     /// Response output format
     #[clap(short, long, default_value = "raw")]
     format: Option<crate::Output>,
+    /// Max history size to add to the user prompt.
+    #[clap(long)]
+    max_history: Option<u32>,
+    /// Whether to save the prompt and response to the history file.
+    #[clap(long)]
+    nosave: bool,
 }
 
 /// Runs the `anthropic` command.
@@ -285,18 +291,20 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
     }
 
     // Save the session to a file.
-    session.save()?;
+    if session.meta.save {
+        session.save()?;
+    }
 
     Ok(())
 }
 
 /// Returns a valid completion prompt from the list of messages.
-pub fn complete_prompt(
+pub fn complete_prompt_history(
     mut messages: Vec<Message>,
-    max_supported_tokens: u32,
+    max_history: u32,
     max_tokens_to_sample: u32,
 ) -> Result<String> {
-    let max = max_supported_tokens - max_tokens_to_sample;
+    let max = max_history - max_tokens_to_sample;
 
     messages.push(Message::new("".to_string(), Role::Assistant, false));
 
@@ -347,6 +355,10 @@ pub fn merge_options(
         session.max_supported_tokens = options.max_supported_tokens.unwrap();
     }
 
+    if options.max_history.is_some() {
+        session.max_history = options.max_history;
+    }
+
     if options.temperature.is_some() {
         session.options.temperature = options.temperature;
     }
@@ -367,6 +379,7 @@ pub fn merge_options(
         session.meta.format = options.format.unwrap();
     }
 
+    session.meta.save = !options.nosave;
     session.meta.key = options.anthropic_api_key;
     session.meta.stream = options.stream;
     session.meta.silent = options.silent;
@@ -532,10 +545,14 @@ fn create_body(session: &Session<SessionOptions>) -> Result<String> {
     tracing::event!(tracing::Level::INFO, "Serializing body...");
     let mut request_options: RequestOptions = session.into();
 
-    request_options.prompt = complete_prompt(
+    request_options.prompt = complete_prompt_history(
         session.history.clone(),
-        session.max_supported_tokens,
-        request_options.max_tokens_to_sample,
+        session.max_history.unwrap_or(session.max_supported_tokens),
+        if session.max_history.is_some() {
+            0
+        } else {
+            request_options.max_tokens_to_sample
+        },
     )?;
 
     match serde_json::to_string(&request_options) {
