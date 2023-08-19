@@ -1,5 +1,3 @@
-use std::ops::RangeInclusive;
-
 use anthropic::client::Client;
 use clap::{Parser, ValueEnum};
 use color_eyre::eyre::Result;
@@ -143,17 +141,17 @@ pub struct CommandOptions {
     /// Amount of randomness injected into the response. Ranges from 0 to 1. Use temp closer to
     /// 0 for analytical/multiple choice, and temp closer to 1 for creative and generative
     /// tasks.
-    #[clap(long, value_parser = parse_temperature)]
+    #[clap(long, value_parser = crate::utils::parse_temperature)]
     temperature: Option<f32>,
     /// Only sample fromt the top `K` options of each subsequent token. Used to remove "long
     /// tail" low probability responses. Defaults to -1, which disables it.
-    #[clap(long, value_parser = parse_top_k)]
+    #[clap(long, value_parser = crate::utils::parse_top_k)]
     top_k: Option<f32>,
     /// Does nucleus sampleing, in which we compute the cumulative distribution over all the
     /// options for each subsequent token in decreasing probability order and cut it off once
     /// it reaches a particular probability specified by the top_p. Defaults to -1, which
     /// disables it. Not that you should either alter *temperature* or *top_p* but not both.
-    #[clap(long, value_parser = parse_top_p)]
+    #[clap(long, value_parser = crate::utils::parse_top_p)]
     top_p: Option<f32>,
     /// Anthropic API Key to use. Will default to the environment variable `ANTHROPIC_API_KEY` if not set.
     #[arg(long, env = "ANTHROPIC_API_KEY")]
@@ -171,70 +169,6 @@ pub struct CommandOptions {
     /// Response output format
     #[clap(short, long, default_value = "raw")]
     format: Option<crate::Output>,
-}
-
-/// The range of values for the `temperature` option which goes from 0 to 1.
-const TEMPERATURE_RANGE: RangeInclusive<f32> = 0.0..=1.0;
-/// The range of values for the `top_k` option which goes from 0 to Infinity.
-const TOP_K_RANGE: RangeInclusive<f32> = 0.0..=f32::INFINITY;
-/// The range of values for the `top_p` option which goes from 0 to 1.
-const TOP_P_RANGE: RangeInclusive<f32> = 0.0..=1.0;
-
-/// Parses the temperature value.
-fn parse_temperature(s: &str) -> std::result::Result<f32, String> {
-    let value = s.parse::<f32>().map_err(|_| {
-        format!(
-            "`{s}` must be a number between {} and {}",
-            TEMPERATURE_RANGE.start(),
-            TEMPERATURE_RANGE.end()
-        )
-    })?;
-    if !TEMPERATURE_RANGE.contains(&value) {
-        return Err(format!(
-            "`{s}` must be a number between {} and {}",
-            TEMPERATURE_RANGE.start(),
-            TEMPERATURE_RANGE.end()
-        ));
-    }
-    Ok(value)
-}
-
-/// Parses the top_k value.
-fn parse_top_k(s: &str) -> std::result::Result<f32, String> {
-    let value = s.parse::<f32>().map_err(|_| {
-        format!(
-            "`{s}` must be a number between {} and {}",
-            TOP_K_RANGE.start(),
-            TOP_K_RANGE.end()
-        )
-    })?;
-    if !TOP_K_RANGE.contains(&value) {
-        return Err(format!(
-            "`{s}` must be a number between {} and {}",
-            TOP_K_RANGE.start(),
-            TOP_K_RANGE.end()
-        ));
-    }
-    Ok(value)
-}
-
-/// Parses the top_p value.
-fn parse_top_p(s: &str) -> std::result::Result<f32, String> {
-    let value = s.parse::<f32>().map_err(|_| {
-        format!(
-            "`{s}` must be a number between {} and {}",
-            TOP_P_RANGE.start(),
-            TOP_P_RANGE.end()
-        )
-    })?;
-    if !TOP_P_RANGE.contains(&value) {
-        return Err(format!(
-            "`{s}` must be a number between {} and {}",
-            TOP_P_RANGE.start(),
-            TOP_P_RANGE.end()
-        ));
-    }
-    Ok(value)
 }
 
 /// Runs the `anthropic` command.
@@ -445,22 +379,7 @@ pub fn merge_options(
 async fn complete_stream(
     session: &Session<SessionOptions>,
 ) -> Result<impl Stream<Item = Result<Chunk>>> {
-    tracing::event!(tracing::Level::INFO, "Serializing body...");
-    let max_tokens_to_sample = session.options.max_tokens_to_sample.unwrap_or(1000);
-    let body = serde_json::to_string(&RequestOptions {
-        model: session.options.model.unwrap_or_default(),
-        max_tokens_to_sample,
-        stop_sequences: session.options.stop_sequences.clone(),
-        temperature: session.options.temperature,
-        top_k: session.options.top_k,
-        top_p: session.options.top_p,
-        stream: session.meta.stream,
-        prompt: complete_prompt(
-            session.history.clone(),
-            session.max_supported_tokens,
-            max_tokens_to_sample,
-        )?,
-    })?;
+    let body = create_body(session)?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
 
     tracing::event!(tracing::Level::INFO, "Creating client...");
@@ -551,22 +470,7 @@ async fn complete_stream(
 
 /// Completes the command without streaming the response.
 async fn complete(session: &Session<SessionOptions>) -> Result<Response> {
-    tracing::event!(tracing::Level::INFO, "Serializing body...");
-    let max_tokens_to_sample = session.options.max_tokens_to_sample.unwrap_or(1000);
-    let body = serde_json::to_string(&RequestOptions {
-        model: session.options.model.unwrap_or_default(),
-        max_tokens_to_sample,
-        stop_sequences: session.options.stop_sequences.clone(),
-        temperature: session.options.temperature,
-        top_k: session.options.top_k,
-        top_p: session.options.top_p,
-        stream: session.meta.stream,
-        prompt: complete_prompt(
-            session.history.clone(),
-            session.max_supported_tokens,
-            max_tokens_to_sample,
-        )?,
-    })?;
+    let body = create_body(session)?;
     tracing::event!(tracing::Level::INFO, "body: {:?}", body);
 
     tracing::event!(tracing::Level::INFO, "Creating client...");
@@ -590,7 +494,7 @@ async fn complete(session: &Session<SessionOptions>) -> Result<Response> {
 }
 
 /// Prints the Response output according to the user options.
-fn print_output(format: &crate::Output, response: &Response) -> Result<()> {
+pub fn print_output(format: &crate::Output, response: &Response) -> Result<()> {
     match format {
         crate::Output::Raw => {
             println!("{}", response.completion);
@@ -608,31 +512,39 @@ fn print_output(format: &crate::Output, response: &Response) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct CompletionOptions {
-    /// The maximum number of tokens supported by the model.
-    pub max_supported_tokens: Option<u32>,
-    /// Controls which version of Claude answers your request. Two model families are exposed
-    /// Claude and Claude Instant.
-    pub model: String,
-    /// A maximum number of tokens to generate before stopping.
-    pub max_tokens_to_sample: u32,
-    /// Claude models stop on `\n\nHuman:`, and may include additional built-in stops sequences
-    /// in the future. By providing the `stop_sequences` parameter, you may include additional
-    /// strings that will cause the model to stop generation.
-    pub stop_sequences: Option<Vec<String>>,
-    /// Amount of randomness injected into the response. Ranges from 0 to 1. Use temp closer to
-    /// 0 for analytical/multiple choice, and temp closer to 1 for creative and generative
-    /// tasks.
-    pub temperature: Option<f32>,
-    /// Only sample fromt the top `K` options of each subsequent token. Used to remove "long
-    /// tail" low probability responses. Defaults to -1, which disables it.
-    pub top_k: Option<f32>,
-    /// Does nucleus sampleing, in which we compute the cumulative distribution over all the
-    /// options for each subsequent token in decreasing probability order and cut it off once
-    /// it reaches a particular probability specified by the top_p. Defaults to -1, which
-    /// disables it. Not that you should either alter *temperature* or *top_p* but not both.
-    pub top_p: Option<f32>,
+impl From<&Session<SessionOptions>> for RequestOptions {
+    fn from(session: &Session<SessionOptions>) -> RequestOptions {
+        Self {
+            model: session.options.model.unwrap_or_default(),
+            max_tokens_to_sample: session.options.max_tokens_to_sample.unwrap_or(1000),
+            stop_sequences: session.options.stop_sequences.clone(),
+            temperature: session.options.temperature,
+            top_k: session.options.top_k,
+            top_p: session.options.top_p,
+            stream: session.meta.stream,
+            prompt: "".to_string(),
+        }
+    }
+}
+
+/// Creates a serialized request body from the session
+fn create_body(session: &Session<SessionOptions>) -> Result<String> {
+    tracing::event!(tracing::Level::INFO, "Serializing body...");
+    let mut request_options: RequestOptions = session.into();
+
+    request_options.prompt = complete_prompt(
+        session.history.clone(),
+        session.max_supported_tokens,
+        request_options.max_tokens_to_sample,
+    )?;
+
+    match serde_json::to_string(&request_options) {
+        Ok(body) => Ok(body),
+        Err(e) => {
+            tracing::event!(tracing::Level::ERROR, "Error serializing request body.");
+            color_eyre::eyre::bail!("error: {e}")
+        }
+    }
 }
 
 /// Join messages

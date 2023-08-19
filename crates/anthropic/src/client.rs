@@ -1,8 +1,9 @@
+use std::time::Duration;
+
 use color_eyre::eyre::{self, Context, Result};
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::{Client as ReqwestClient, Response as ReqwestResponse};
 use reqwest_eventsource::EventSource;
-use std::time::Duration;
 
 #[derive(Clone, Debug, Default)]
 pub struct Client {
