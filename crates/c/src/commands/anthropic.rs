@@ -325,7 +325,12 @@ pub fn complete_prompt_history(
             break prompt;
         }
 
-        if let Some((index, _)) = messages.iter().enumerate().find(|(_, m)| !m.pin) {
+        let window = messages
+            .windows(messages.len() - 1)
+            .next()
+            .unwrap_or_default();
+
+        if let Some((index, _)) = window.iter().enumerate().find(|(_, m)| !m.pin) {
             tracing::event!(
                 tracing::Level::INFO,
                 "Tokens ({tokens}) is greater than max ({max}). Trying again with fewer messages",

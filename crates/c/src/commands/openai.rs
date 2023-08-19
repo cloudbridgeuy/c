@@ -484,7 +484,6 @@ async fn complete_stream(
 /// Completes the command without streaming the response.
 async fn complete(session: &Session<SessionOptions>) -> Result<Response> {
     let body = create_body(session)?;
-    tracing::event!(tracing::Level::INFO, "body: {:?}", body);
 
     tracing::event!(tracing::Level::INFO, "Creating client...");
     let client = Client::new(session.meta.key.clone())?;
@@ -639,7 +638,12 @@ fn trim_messages(mut messages: Vec<Message>, max: u32) -> Result<Vec<Message>> {
         return Ok(messages);
     }
 
-    if let Some((index, _)) = messages
+    let window = messages
+        .windows(messages.len() - 1)
+        .next()
+        .unwrap_or_default();
+
+    if let Some((index, _)) = window
         .iter()
         .enumerate()
         .find(|(_, m)| m.role != Role::System && !m.pin)
