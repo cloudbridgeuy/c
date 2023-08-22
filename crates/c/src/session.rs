@@ -12,6 +12,7 @@ pub enum Vendor {
     OpenAI,
     Anthropic,
     Google,
+    NLPCloud,
 }
 
 /// Chat LLM Role
@@ -44,12 +45,13 @@ impl Message {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Meta {
     path: String,
+    pub format: crate::Output,
+    pub key: String,
+    pub pin: bool,
+    pub reverse: bool,
     pub save: bool,
     pub silent: bool,
     pub stream: bool,
-    pub pin: bool,
-    pub key: String,
-    pub format: crate::Output,
 }
 
 /// Represents a chat session

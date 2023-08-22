@@ -25,6 +25,9 @@ pub enum Commands {
     /// Google Vertex AI Chat Code API
     #[clap(name = "vertex", alias = "v")]
     Vertex(commands::vertex::CommandOptions),
+    /// NLPCloud AI Chat Bot API
+    #[clap(name = "nlpcloud", alias = "n")]
+    NLPCloud(commands::nlpcloud::CommandOptions),
 }
 
 #[derive(Default, ValueEnum, Debug, Clone, Serialize, Deserialize)]
