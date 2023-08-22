@@ -177,6 +177,9 @@ pub struct CommandOptions {
     /// Whether to save the prompt and response to the history file.
     #[clap(long)]
     nosave: bool,
+    /// Number of messages to keep in the history. Pinned messages are not counted.
+    #[clap(long)]
+    history_size: Option<usize>,
 }
 
 impl From<CommandOptions> for RequestOptions {
@@ -405,10 +408,47 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
 
     // Save the session to a file.
     if session.meta.save {
+        if session.meta.history_size.is_some() && session.meta.history_size.unwrap() > 0 {
+            session.history = filter_history(&session.history, session.meta.history_size.unwrap());
+        }
+
         session.save()?;
     }
 
     Ok(())
+}
+
+/// Takes in a list of messages and returns two new lists, one with messages with `pin == true` or
+/// `role == Role::System` and the other with messages without `pin = true` or `role == Role::System`.
+fn split_messages(messages: &[Message]) -> (Vec<Message>, Vec<Message>) {
+    let pinned: Vec<Message> = messages
+        .iter()
+        .filter(|m| m.pin || m.role == Role::System)
+        .cloned()
+        .collect();
+
+    let unpinned: Vec<Message> = messages
+        .iter()
+        .filter(|m| !m.pin && m.role != Role::System)
+        .cloned()
+        .collect();
+
+    (pinned, unpinned)
+}
+
+/// Filter the Session History message so that only the last `n` messages without `pin = true` and
+/// `role == Role::System` are returned.
+fn filter_history(messages: &[Message], n: usize) -> Vec<Message> {
+    let (mut pinned, mut unpinned) = split_messages(messages);
+    let len = unpinned.len();
+
+    if len > n {
+        unpinned = unpinned.drain(len - n..len).collect();
+    }
+
+    pinned.append(&mut unpinned);
+
+    pinned
 }
 
 /// Completes the command by streaming the response.
@@ -593,6 +633,10 @@ pub fn merge_options(
                 },
             );
         }
+    }
+
+    if options.history_size.is_some() {
+        session.meta.history_size = options.history_size;
     }
 
     session.meta.save = !options.nosave;

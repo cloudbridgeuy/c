@@ -49,6 +49,7 @@ pub struct Meta {
     pub key: String,
     pub pin: bool,
     pub reverse: bool,
+    pub history_size: Option<usize>,
     pub save: bool,
     pub silent: bool,
     pub stream: bool,
