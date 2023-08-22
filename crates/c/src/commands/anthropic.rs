@@ -175,6 +175,9 @@ pub struct CommandOptions {
     /// Whether to save the prompt and response to the history file.
     #[clap(long)]
     nosave: bool,
+    /// Number of messages to keep in the history. Pinned messages are not counted.
+    #[clap(long)]
+    history_size: Option<usize>,
 }
 
 /// Runs the `anthropic` command.
@@ -292,6 +295,11 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
 
     // Save the session to a file.
     if session.meta.save {
+        if session.meta.history_size.is_some() && session.meta.history_size.unwrap() > 0 {
+            session.history =
+                crate::utils::filter_history(&session.history, session.meta.history_size.unwrap());
+        }
+
         session.save()?;
     }
 
@@ -382,6 +390,10 @@ pub fn merge_options(
 
     if options.format.is_some() {
         session.meta.format = options.format.unwrap();
+    }
+
+    if options.history_size.is_some() {
+        session.meta.history_size = options.history_size;
     }
 
     session.meta.save = !options.nosave;

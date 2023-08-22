@@ -409,46 +409,14 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
     // Save the session to a file.
     if session.meta.save {
         if session.meta.history_size.is_some() && session.meta.history_size.unwrap() > 0 {
-            session.history = filter_history(&session.history, session.meta.history_size.unwrap());
+            session.history =
+                crate::utils::filter_history(&session.history, session.meta.history_size.unwrap());
         }
 
         session.save()?;
     }
 
     Ok(())
-}
-
-/// Takes in a list of messages and returns two new lists, one with messages with `pin == true` or
-/// `role == Role::System` and the other with messages without `pin = true` or `role == Role::System`.
-fn split_messages(messages: &[Message]) -> (Vec<Message>, Vec<Message>) {
-    let pinned: Vec<Message> = messages
-        .iter()
-        .filter(|m| m.pin || m.role == Role::System)
-        .cloned()
-        .collect();
-
-    let unpinned: Vec<Message> = messages
-        .iter()
-        .filter(|m| !m.pin && m.role != Role::System)
-        .cloned()
-        .collect();
-
-    (pinned, unpinned)
-}
-
-/// Filter the Session History message so that only the last `n` messages without `pin = true` and
-/// `role == Role::System` are returned.
-fn filter_history(messages: &[Message], n: usize) -> Vec<Message> {
-    let (mut pinned, mut unpinned) = split_messages(messages);
-    let len = unpinned.len();
-
-    if len > n {
-        unpinned = unpinned.drain(len - n..len).collect();
-    }
-
-    pinned.append(&mut unpinned);
-
-    pinned
 }
 
 /// Completes the command by streaming the response.

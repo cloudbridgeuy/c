@@ -131,3 +131,41 @@ pub fn parse_repetition_penalty_range(s: &str) -> std::result::Result<u32, Strin
     }
     Ok(value)
 }
+
+/// Takes in a list of messages and returns two new lists, one with messages with `pin == true` or
+/// `role == crate::session::Role::System` and the other with messages without `pin = true` or `role == crate::session::Role::System`.
+pub fn split_messages(
+    messages: &[crate::session::Message],
+) -> (Vec<crate::session::Message>, Vec<crate::session::Message>) {
+    let pinned: Vec<crate::session::Message> = messages
+        .iter()
+        .filter(|m| m.pin || m.role == crate::session::Role::System)
+        .cloned()
+        .collect();
+
+    let unpinned: Vec<crate::session::Message> = messages
+        .iter()
+        .filter(|m| !m.pin && m.role != crate::session::Role::System)
+        .cloned()
+        .collect();
+
+    (pinned, unpinned)
+}
+
+/// Filter the Session History message so that only the last `n` messages without `pin = true` and
+/// `role == crate::session::Role::System` are returned.
+pub fn filter_history(
+    messages: &[crate::session::Message],
+    n: usize,
+) -> Vec<crate::session::Message> {
+    let (mut pinned, mut unpinned) = split_messages(messages);
+    let len = unpinned.len();
+
+    if len > n {
+        unpinned = unpinned.drain(len - n..len).collect();
+    }
+
+    pinned.append(&mut unpinned);
+
+    pinned
+}
