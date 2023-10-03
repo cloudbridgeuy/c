@@ -28,6 +28,9 @@ pub enum Commands {
     /// NLPCloud AI Chat Bot API
     #[clap(name = "nlpcloud", alias = "n")]
     NLPCloud(commands::nlpcloud::CommandOptions),
+    /// Ollama AI Chat Bot API
+    #[clap(name = "ollama", alias = "l")]
+    Ollama(commands::ollama::CommandOptions),
 }
 
 #[derive(Default, ValueEnum, Debug, Clone, Serialize, Deserialize)]

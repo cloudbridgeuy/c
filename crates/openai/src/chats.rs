@@ -278,7 +278,7 @@ impl ChatsApi {
     pub async fn create_stream(
         &self,
     ) -> Result<impl Stream<Item = Result<Chunk, error::OpenAi>>, error::OpenAi> {
-        let mut api = &mut (*self).clone();
+        let api = &mut (*self).clone();
 
         let min_available_tokens = api.min_available_tokens.unwrap_or(750);
         let max_supported_tokens = api.max_supported_tokens.unwrap_or(4096);
