@@ -379,7 +379,7 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
         spinner.stop();
 
                         acc.push_str(content);
-                        spinner.print(content);
+                        print!("{}", content);
                     }
                 }
             }
