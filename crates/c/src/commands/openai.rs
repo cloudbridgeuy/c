@@ -375,6 +375,9 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
             if let Some(choice) = &chunk.choices.get(0) {
                 if let Some(delta) = &choice.delta {
                     if let Some(content) = &delta.content {
+                                // Stop the spinner.
+        spinner.stop();
+
                         acc.push_str(content);
                         spinner.print(content);
                     }

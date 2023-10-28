@@ -398,7 +398,7 @@ impl ChatsApi {
 
     /// Creates a completion for the chat message
     pub async fn create(&self) -> Result<Chat, error::OpenAi> {
-        let mut api = &mut (*self).clone();
+        let mut api = (*self).clone();
 
         let min_available_tokens = api.min_available_tokens.unwrap_or(750);
         let max_supported_tokens = api.max_supported_tokens.unwrap_or(4096);
@@ -422,7 +422,7 @@ impl ChatsApi {
 
         log::debug!("Trimmed messages to {:?}", api.messages);
 
-        let request = match serde_json::to_string(api) {
+        let request = match serde_json::to_string(&api) {
             Ok(request) => request,
             Err(err) => {
                 return Err(error::OpenAi::SerializationError {
@@ -469,7 +469,7 @@ impl ChatsApi {
             api.messages = messages;
             api.messages
                 .push(body.choices.first().unwrap().message.clone());
-            serialize_sessions_file(&session_file, api)?;
+            serialize_sessions_file(&session_file, &api)?;
         }
 
         Ok(body)
