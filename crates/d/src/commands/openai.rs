@@ -169,12 +169,24 @@ async fn listen_for_tokens(
     let mut merged: Option<ChatCompletionDelta> = None;
     let mut previous_output = String::new();
     let mut accumulated_content_bytes = Vec::new();
+    let mut sp: Option<spinners::Spinner> = None;
 
     execute!(std::io::stdout(), cursor::Hide)?;
+    if atty::is(atty::Stream::Stdout) {
+        sp = Some(spinners::Spinner::new(
+            spinners::Spinners::OrangeBluePulse,
+            "Loading...".into(),
+        ));
+    }
+
     while let Some(delta) = chat_stream.recv().await {
         let choice = &delta.choices[0];
 
         if let Some(content) = &choice.delta.content {
+            if atty::is(atty::Stream::Stdout) && sp.is_some() {
+                sp.take().unwrap().stop();
+            }
+
             accumulated_content_bytes.extend_from_slice(content.as_bytes());
 
             let output = crate::printer::CustomPrinter::new()

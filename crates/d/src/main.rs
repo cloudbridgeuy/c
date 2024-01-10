@@ -1,5 +1,9 @@
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::bail;
+use crossterm::cursor::Show;
+use crossterm::execute;
+use std::io::stdout;
+use tokio::signal::unix::{signal, SignalKind};
 
 mod commands;
 mod printer;
@@ -27,7 +31,29 @@ async fn main() -> color_eyre::eyre::Result<()> {
     // Load the OpenAI API Key from the OPENAI_API_KEY environment variable.
     openai::set_key(std::env::var("OPENAI_API_KEY")?);
 
-    run().await?;
+    // Set up the signal handler for SIGINT
+    let mut sigint = signal(SignalKind::interrupt())?;
+
+    // Run your application logic in a separate async task
+    let app_task = tokio::spawn(async {
+        if let Err(e) = run().await {
+            bail!("Application error: {}", e)
+        }
+
+        Ok(())
+    });
+
+    tokio::select! {
+        _ = app_task => {
+            // The application has finished running
+        },
+        _ = sigint.recv() => {
+            if let Err(e) = execute!(stdout(), Show) {
+                eprintln!("Failed to restore cursor: {}", e);
+            }
+        },
+    }
+
     Ok(())
 }
 
