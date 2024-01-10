@@ -115,6 +115,7 @@ async fn listen_for_tokens(
     let mut previous_output = String::new();
     let mut accumulated_content_bytes = Vec::new();
 
+    execute!(std::io::stdout(), cursor::Hide)?;
     while let Some(delta) = chat_stream.recv().await {
         let choice = &delta.choices[0];
 
@@ -135,7 +136,7 @@ async fn listen_for_tokens(
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            execute!(std::io::stdout(), cursor::MoveToColumn(0)).unwrap();
+            execute!(std::io::stdout(), cursor::MoveToColumn(0))?;
             print!("{unprinted_lines}");
             std::io::stdout().flush()?;
 
@@ -157,6 +158,7 @@ async fn listen_for_tokens(
         };
     }
 
+    execute!(std::io::stdout(), cursor::Show)?;
     std::io::stdout().flush()?;
 
     Ok(merged.unwrap().into())
