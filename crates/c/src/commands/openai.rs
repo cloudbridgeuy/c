@@ -40,6 +40,8 @@ impl From<Message> for CompletionMessage {
 #[serde(rename_all = "kebab-case")]
 enum Model {
     #[default]
+    #[serde(rename = "gpt-4-1106-preview")]
+    GPT41106Preview,
     #[serde(rename = "gpt-4")]
     GPT4,
     #[serde(rename = "gpt-4-32k")]
@@ -53,6 +55,7 @@ enum Model {
 impl Model {
     pub fn as_str(&self) -> &'static str {
         match self {
+            Model::GPT41106Preview => "gpt-4-1106-preview",
             Model::GPT4 => "gpt-4",
             Model::GPT432K => "gpt-4-32k",
             Model::GPT35Turbo => "gpt-3.5-turbo",
@@ -62,6 +65,7 @@ impl Model {
 
     pub fn as_u32(&self) -> u32 {
         match self {
+            Model::GPT41106Preview => 128000,
             Model::GPT4 => 8000,
             Model::GPT432K => 32000,
             Model::GPT35Turbo => 4000,
@@ -375,8 +379,8 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
             if let Some(choice) = &chunk.choices.get(0) {
                 if let Some(delta) = &choice.delta {
                     if let Some(content) = &delta.content {
-                                // Stop the spinner.
-        spinner.stop();
+                        // Stop the spinner.
+                        spinner.stop();
 
                         acc.push_str(content);
                         print!("{}", content);
