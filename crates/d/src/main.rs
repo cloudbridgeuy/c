@@ -1,4 +1,23 @@
-mod ai;
+use clap::{Parser, Subcommand};
+use color_eyre::eyre::bail;
+
+mod commands;
+mod printer;
+
+#[derive(Debug, Subcommand)]
+pub enum Commands {
+    /// OpenAI Chat AI API
+    #[clap(name = "openai", alias = "o")]
+    OpenAi(commands::openai::CommandOptions),
+}
+
+#[derive(Debug, Parser)]
+#[command(name = "d")]
+#[command(about = "Interact with LLMs through the terminal")]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+}
 
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
@@ -13,7 +32,12 @@ async fn main() -> color_eyre::eyre::Result<()> {
 }
 
 async fn run() -> color_eyre::eyre::Result<()> {
-    crate::ai::run().await?;
+    match Cli::parse().command {
+        Some(Commands::OpenAi(options)) => crate::commands::openai::run(options).await?,
+        None => {
+            bail!("No subcommand provided. Use --help to see available subcommands.")
+        }
+    }
 
     Ok(())
 }
