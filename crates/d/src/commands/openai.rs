@@ -24,6 +24,8 @@ enum Model {
     GPT35Turbo,
     #[serde(rename = "gpt-3.5-turbo-16k")]
     GPT35Turbo16K,
+    #[serde(rename = "gpt-3.5-turbo-1106")]
+    GPT35Turbo1106,
 }
 
 impl Model {
@@ -34,6 +36,7 @@ impl Model {
             Model::GPT432K => "gpt-4-32k",
             Model::GPT35Turbo => "gpt-3.5-turbo",
             Model::GPT35Turbo16K => "gpt-3.5-turbo-16k",
+            Model::GPT35Turbo1106 => "gpt-3.5-turbo-1106",
         }
     }
 
@@ -44,6 +47,7 @@ impl Model {
             Model::GPT432K => 32000,
             Model::GPT35Turbo => 4000,
             Model::GPT35Turbo16K => 16000,
+            Model::GPT35Turbo1106 => 16000,
         }
     }
 }
@@ -138,14 +142,12 @@ pub async fn run(options: CommandOptions) -> Result<()> {
         }
     }
 
-    fetch(messages).await
-}
-
-/// Prepare `openai` request
-async fn fetch(mut messages: Vec<ChatCompletionMessage>) -> Result<()> {
-    let chat_stream = ChatCompletionDelta::builder("gpt-3.5-turbo", messages.clone())
-        .create_stream()
-        .await?;
+    let chat_stream = ChatCompletionDelta::builder(
+        options.model.unwrap_or(Model::GPT41106Preview).as_str(),
+        messages.clone(),
+    )
+    .create_stream()
+    .await?;
 
     let chat_completion: ChatCompletion = listen_for_tokens(chat_stream).await?;
     let returned_message = chat_completion
