@@ -1,18 +1,25 @@
 use clap::{Parser, Subcommand};
-use color_eyre::eyre::bail;
-use crossterm::cursor::Show;
-use crossterm::execute;
-use std::io::stdout;
-use tokio::signal::unix::{signal, SignalKind};
+use color_eyre::eyre::{bail, eyre};
 
 mod commands;
+mod models;
 mod printer;
+mod sessions;
+mod shutdown;
+mod similarity;
+mod vector;
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// OpenAI Chat AI API
     #[clap(name = "openai", alias = "o")]
-    OpenAi(commands::openai::CommandOptions),
+    Chat(commands::chat::Options),
+    /// Embedding commands
+    #[clap(name = "embeddings", alias = "e")]
+    Embeddings(commands::embeddings::Options),
+    /// Vector commands
+    #[clap(name = "vector", alias = "v")]
+    Vector(commands::vector::Cli),
 }
 
 #[derive(Debug, Parser)]
@@ -31,11 +38,11 @@ async fn main() -> color_eyre::eyre::Result<()> {
     // Load the OpenAI API Key from the OPENAI_API_KEY environment variable.
     openai::set_key(std::env::var("OPENAI_API_KEY")?);
 
-    // Set up the signal handler for SIGINT
-    let mut sigint = signal(SignalKind::interrupt())?;
+    // Create the shutdown handler
+    let shutdown = shutdown::Shutdown::new()?;
 
-    // Run your application logic in a separate async task
-    let app_task = tokio::spawn(async {
+    // Run app in separate async task
+    tokio::spawn(async {
         if let Err(e) = run().await {
             bail!("Application error: {}", e)
         }
@@ -43,27 +50,26 @@ async fn main() -> color_eyre::eyre::Result<()> {
         Ok(())
     });
 
-    tokio::select! {
-        _ = app_task => {
-            // The application has finished running
-        },
-        _ = sigint.recv() => {
-            if let Err(e) = execute!(stdout(), Show) {
-                eprintln!("Failed to restore cursor: {}", e);
-            }
-        },
-    }
+    shutdown.handle().await;
 
     Ok(())
 }
 
 async fn run() -> color_eyre::eyre::Result<()> {
-    match Cli::parse().command {
-        Some(Commands::OpenAi(options)) => crate::commands::openai::run(options).await?,
-        None => {
-            bail!("No subcommand provided. Use --help to see available subcommands.")
+    let result = match Cli::parse().command {
+        Some(Commands::Chat(options)) => commands::chat::run(options).await,
+        Some(Commands::Embeddings(options)) => commands::embeddings::run(options).await,
+        Some(Commands::Vector(cli)) => commands::vector::run(cli).await,
+        None => Err(eyre!(
+            "No subcommand provided. Use --help to see available subcommands."
+        )),
+    };
+
+    match result {
+        Ok(_) => std::process::exit(0),
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
         }
     }
-
-    Ok(())
 }

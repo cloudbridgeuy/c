@@ -1,64 +1,22 @@
 use std::io::{Read, Write};
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use color_eyre::eyre::{bail, Result};
 use crossterm::{cursor, execute};
-use openai::chat::{
-    ChatCompletion, ChatCompletionDelta, ChatCompletionMessage, ChatCompletionMessageRole,
-};
+use openai::chat::{ChatCompletion, ChatCompletionDelta, ChatCompletionMessageRole};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::Receiver;
 
-#[derive(ValueEnum, Debug, Default, Clone, Copy, Serialize, Deserialize)]
-#[clap(rename_all = "kebab-case")]
-#[serde(rename_all = "kebab-case")]
-enum Model {
-    #[default]
-    #[serde(rename = "gpt-4-1106-preview")]
-    GPT41106Preview,
-    #[serde(rename = "gpt-4")]
-    GPT4,
-    #[serde(rename = "gpt-4-32k")]
-    GPT432K,
-    #[serde(rename = "gpt-3.5-turbo")]
-    GPT35Turbo,
-    #[serde(rename = "gpt-3.5-turbo-16k")]
-    GPT35Turbo16K,
-    #[serde(rename = "gpt-3.5-turbo-1106")]
-    GPT35Turbo1106,
-}
-
-impl Model {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Model::GPT41106Preview => "gpt-4-1106-preview",
-            Model::GPT4 => "gpt-4",
-            Model::GPT432K => "gpt-4-32k",
-            Model::GPT35Turbo => "gpt-3.5-turbo",
-            Model::GPT35Turbo16K => "gpt-3.5-turbo-16k",
-            Model::GPT35Turbo1106 => "gpt-3.5-turbo-1106",
-        }
-    }
-
-    pub fn as_u32(&self) -> u32 {
-        match self {
-            Model::GPT41106Preview => 128000,
-            Model::GPT4 => 8000,
-            Model::GPT432K => 32000,
-            Model::GPT35Turbo => 4000,
-            Model::GPT35Turbo16K => 16000,
-            Model::GPT35Turbo1106 => 16000,
-        }
-    }
-}
+use crate::models::Model;
+use crate::sessions::Session;
 
 #[derive(Default, Clone, Parser, Debug, Serialize, Deserialize)]
-pub struct CommandOptions {
+pub struct Options {
     /// The content of the message to be sent to the chatbot. You can also populate this value
     /// from stdin. If you pass a value here and pipe data from stdin, both will be sent to the
     /// API, stdin taking precedence.
     prompt: Option<String>,
-    /// ID of the model to use. See the following link: https://platform.openai.com/docs/models/overview
+    /// ID of the model to use.
     #[clap(short, long, value_enum)]
     model: Option<Model>,
     /// Chat session name. Will be used to store previous session interactions.
@@ -67,6 +25,18 @@ pub struct CommandOptions {
     /// The system message helps set the behavior of the assistant.
     #[arg(long)]
     system: Option<String>,
+    /// The temperature value to use for the session.
+    #[arg(long)]
+    temperature: Option<f32>,
+    /// The top_p value to use for the session
+    #[arg(long)]
+    top_p: Option<f32>,
+    /// The max_tokens value to use for the session
+    #[arg(long)]
+    max_tokens: Option<u64>,
+    /// Don't perform the request and instead print the session to stdout.
+    #[arg(long)]
+    dry_run: bool,
 }
 
 /// Reads from `stdin`
@@ -82,44 +52,43 @@ fn read_stdin() -> Result<String> {
     }
 }
 
-/// Runs the `openai` command
-pub async fn run(options: CommandOptions) -> Result<()> {
-    let mut messages = Vec::new();
+// pub async fn messages_from_session(session: String) -> Vec<ChatCompletionMessage> {}
 
-    if options.system.is_some() {
-        messages.push(ChatCompletionMessage {
-            role: ChatCompletionMessageRole::System,
-            content: options.system,
-            name: None,
-            function_call: None,
-        });
-    } else {
-        messages.push(ChatCompletionMessage {
-            role: ChatCompletionMessageRole::System,
-            content: Some("You're an AI that with detail and using markdown to format your answers, with proper code fences when you need to write code.".to_string()),
-            name: None,
-            function_call: None,
-        });
+/// Runs the `openai` command
+pub async fn run(mut options: Options) -> Result<()> {
+    let mut session = match options.session {
+        Some(session) => Session::load(session)?,
+        None => Session::new(),
+    };
+
+    if let Some(model) = options.model.take() {
+        session.model = model;
+    }
+
+    if let Some(temperature) = options.temperature.take() {
+        session.set_temperature(temperature)?;
+    }
+
+    if let Some(top_p) = options.top_p.take() {
+        session.set_top_p(top_p)?;
+    }
+
+    if let Some(max_tokens) = options.max_tokens.take() {
+        session.set_max_tokens(max_tokens)?;
+    }
+
+    if let Some(system) = options.system.take() {
+        session.system(system);
+    }
+
+    if !atty::is(atty::Stream::Stdin) {
+        session.push(read_stdin()?, ChatCompletionMessageRole::User)
     }
 
     match options.prompt {
         Some(prompt) => {
-            if !atty::is(atty::Stream::Stdin) {
-                messages.push(ChatCompletionMessage {
-                    role: ChatCompletionMessageRole::User,
-                    content: Some(read_stdin()?),
-                    name: None,
-                    function_call: None,
-                });
-            }
-
             if !prompt.is_empty() {
-                messages.push(ChatCompletionMessage {
-                    role: ChatCompletionMessageRole::User,
-                    content: Some(prompt),
-                    name: None,
-                    function_call: None,
-                });
+                session.push(prompt, ChatCompletionMessageRole::User)
             }
         }
         None => {
@@ -132,20 +101,27 @@ pub async fn run(options: CommandOptions) -> Result<()> {
 
                 std::io::stdin().read_line(&mut user_message_content)?;
 
-                messages.push(ChatCompletionMessage {
-                    role: ChatCompletionMessageRole::User,
-                    content: Some(user_message_content.to_string()),
-                    name: None,
-                    function_call: None,
-                });
+                session.push(
+                    user_message_content.to_string(),
+                    ChatCompletionMessageRole::User,
+                )
             }
         }
     }
 
+    if options.dry_run {
+        println!("{}", serde_yaml::to_string(&session)?);
+        return Ok(());
+    }
+
+    let messages = session.completion_messages();
     let chat_stream = ChatCompletionDelta::builder(
         options.model.unwrap_or(Model::GPT41106Preview).as_str(),
-        messages.clone(),
+        messages,
     )
+    .temperature(session.get_temperature())
+    .top_p(session.get_top_p())
+    .max_tokens(session.get_max_tokens())
     .create_stream()
     .await?;
 
@@ -157,7 +133,12 @@ pub async fn run(options: CommandOptions) -> Result<()> {
         .message
         .clone();
 
-    messages.push(returned_message);
+    session.push(
+        returned_message.content.unwrap(),
+        ChatCompletionMessageRole::Assistant,
+    );
+
+    session.save()?;
 
     Ok(())
 }
@@ -171,7 +152,6 @@ async fn listen_for_tokens(
     let mut accumulated_content_bytes = Vec::new();
     let mut sp: Option<spinners::Spinner> = None;
 
-    execute!(std::io::stdout(), cursor::Hide)?;
     if atty::is(atty::Stream::Stdout) {
         sp = Some(spinners::Spinner::new(
             spinners::Spinners::OrangeBluePulse,
@@ -185,6 +165,7 @@ async fn listen_for_tokens(
         if let Some(content) = &choice.delta.content {
             if atty::is(atty::Stream::Stdout) && sp.is_some() {
                 sp.take().unwrap().stop();
+                std::io::stdout().flush()?;
             }
 
             accumulated_content_bytes.extend_from_slice(content.as_bytes());
@@ -225,7 +206,6 @@ async fn listen_for_tokens(
         };
     }
 
-    execute!(std::io::stdout(), cursor::Show)?;
     std::io::stdout().flush()?;
 
     Ok(merged.unwrap().into())

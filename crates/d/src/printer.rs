@@ -44,18 +44,16 @@ impl<'a> CustomPrinter<'a> {
         self
     }
 
+    /// Custom print function that takes advantage of the fact that `bat` controllers can take a
+    /// String as the output of the highlighted text.
     pub fn print(&mut self) -> Result<String> {
         self.config.term_width = self
             .term_width
             .unwrap_or_else(|| terminal::size().unwrap().0 as usize);
-
-        // Collect the inputs to print
         let inputs = std::mem::take(&mut self.inputs);
 
-        // Create the output string
         let mut output = String::new();
 
-        // Run the cotroller
         let controller = bat::controller::Controller::new(&self.config, &self.assets);
         controller.run(inputs, Some(&mut output))?;
 
