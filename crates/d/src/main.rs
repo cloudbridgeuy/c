@@ -12,9 +12,9 @@ mod vector;
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// OpenAI Chat AI API
-    #[clap(name = "openai", alias = "o")]
+    #[clap(name = "chat", alias = "c")]
     Chat(commands::chat::Options),
-    /// Embedding commands
+    /// OpenAI Embedding commands
     #[clap(name = "embeddings", alias = "e")]
     Embeddings(commands::embeddings::Options),
     /// Vector commands
