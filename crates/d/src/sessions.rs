@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+
 use color_eyre::eyre::Result;
 use openai::chat::{ChatCompletionMessage, ChatCompletionMessageRole};
+use openai::embeddings::Embedding;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::constants::{DIMENSION, DISTANCE, MODEL};
 use crate::models::Model;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -17,7 +21,8 @@ pub struct Message {
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Session {
-    pub name: String,
+    pub name: Option<String>,
+    pub collection: Option<String>,
     messages: Vec<Message>,
     pub model: Model,
     temperature: Option<f32>,
@@ -61,20 +66,66 @@ impl Session {
     }
 
     /// Tries to save the session to the filesystem.
-    pub fn save(&self) -> Result<()> {
-        if self.name.is_empty() {
+    pub async fn save(&self) -> Result<()> {
+        if self.name.is_none() {
             return Ok(());
         }
 
+        let name = &self.name.clone().unwrap();
         let home = std::env::var("D_ROOT").unwrap_or(std::env::var("HOME")?);
         let dir = format!("{home}/.d/sessions");
-        let path = format!("{home}/.d/sessions/{}.yaml", &self.name.clone());
+        let path = format!("{home}/.d/sessions/{}.yaml", &name.clone());
 
         if !std::path::Path::new(&dir).is_dir() {
             std::fs::create_dir_all(dir)?;
         }
 
         std::fs::write(path, serde_yaml::to_string(&self)?)?;
+
+        if self.collection.is_none() {
+            return Ok(());
+        }
+
+        let mut db = crate::vector::from_store()?;
+
+        let collection = &self.collection.clone().unwrap();
+        let _ = db.create_collection(collection.clone(), DIMENSION, DISTANCE);
+
+        let mut messages: Vec<Message> = Vec::new();
+
+        // Get the last message of the session
+        messages.push(self.messages.last().unwrap().clone());
+
+        // Now, from the bottom, get all the messages with a `role` of `ChatCompletionMessageRole.`
+        for message in self.messages.iter().rev().skip(1) {
+            match message.role {
+                ChatCompletionMessageRole::User => messages.insert(0, message.clone()),
+                _ => break,
+            }
+        }
+
+        for message in messages {
+            let mut metadata: HashMap<String, String> = HashMap::new();
+
+            metadata.insert("id".to_string(), message.id);
+            metadata.insert("session".to_string(), name.clone());
+            metadata.insert("collection".to_string(), collection.clone());
+
+            let vector = Embedding::create(MODEL, &message.content, &String::default())
+                .await?
+                .vec
+                .into_iter()
+                .map(|num| num as f32)
+                .collect();
+
+            let embedding = crate::vector::Embedding {
+                id: Uuid::new_v4().to_string(),
+                vector,
+                metadata: Some(metadata),
+            };
+
+            db.insert_into_collection(&collection.clone(), embedding)?;
+        }
 
         Ok(())
     }
@@ -92,7 +143,8 @@ impl Session {
             }
             Err(_) => {
                 let mut session = Session::new();
-                session.name = name;
+                session.name = Some(name.clone());
+                session.collection = Some(name);
                 session
             }
         })
@@ -131,6 +183,11 @@ impl Session {
             .into_iter()
             .map(|message| message.into())
             .collect()
+    }
+
+    /// Returns a clone of the session messages.
+    pub fn messages(&self) -> Vec<Message> {
+        self.messages.clone()
     }
 
     /// Gets the temperature.

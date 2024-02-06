@@ -184,7 +184,7 @@ pub async fn query(options: QueryOptions) -> Result<()> {
 
             log::info!("Query to {} took {:?}", &options.name, instant.elapsed());
 
-            println!("{:#?}", results);
+            println!("{}", serde_json::to_string_pretty(&results)?);
 
             Ok(())
         }
@@ -205,7 +205,7 @@ pub async fn get(options: GetOptions) -> Result<()> {
 
     let collection = db.get_collection(&options.name).unwrap();
 
-    println!("{:#?}", collection);
+    println!("{}", serde_json::to_string_pretty(&collection)?);
 
     Ok(())
 }

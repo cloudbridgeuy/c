@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use color_eyre::eyre::{bail, eyre};
 
 mod commands;
+mod constants;
 mod models;
 mod printer;
 mod sessions;
@@ -20,6 +21,9 @@ pub enum Commands {
     /// Vector commands
     #[clap(name = "vector", alias = "v")]
     Vector(commands::vector::Cli),
+    /// Read commands
+    #[clap(name = "read", alias = "r")]
+    Read(commands::read::Options),
 }
 
 #[derive(Debug, Parser)]
@@ -60,6 +64,7 @@ async fn run() -> color_eyre::eyre::Result<()> {
         Some(Commands::Chat(options)) => commands::chat::run(options).await,
         Some(Commands::Embeddings(options)) => commands::embeddings::run(options).await,
         Some(Commands::Vector(cli)) => commands::vector::run(cli).await,
+        Some(Commands::Read(options)) => commands::read::run(options).await,
         None => Err(eyre!(
             "No subcommand provided. Use --help to see available subcommands."
         )),

@@ -22,6 +22,9 @@ pub struct Options {
     /// Chat session name. Will be used to store previous session interactions.
     #[arg(long)]
     session: Option<String>,
+    /// DB collection where the new messages should be stored.
+    #[arg(long)]
+    collection: Option<String>,
     /// The system message helps set the behavior of the assistant.
     #[arg(long)]
     system: Option<String>,
@@ -52,14 +55,16 @@ fn read_stdin() -> Result<String> {
     }
 }
 
-// pub async fn messages_from_session(session: String) -> Vec<ChatCompletionMessage> {}
-
 /// Runs the `openai` command
 pub async fn run(mut options: Options) -> Result<()> {
     let mut session = match options.session {
         Some(session) => Session::load(session)?,
         None => Session::new(),
     };
+
+    if let Some(collection) = options.collection.take() {
+        session.collection = Some(collection);
+    }
 
     if let Some(model) = options.model.take() {
         session.model = model;
@@ -138,7 +143,7 @@ pub async fn run(mut options: Options) -> Result<()> {
         ChatCompletionMessageRole::Assistant,
     );
 
-    session.save()?;
+    session.save().await?;
 
     Ok(())
 }

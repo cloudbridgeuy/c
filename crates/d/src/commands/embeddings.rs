@@ -3,13 +3,13 @@ use color_eyre::eyre::Result;
 use openai::embeddings::Embedding;
 use std::io::Write;
 
+use crate::constants::MODEL;
+
 #[derive(Default, Clone, Parser, Debug)]
 pub struct Options {
     /// Input text to get embeddings for.
     input: String,
 }
-
-const MODEL: &str = "text-embedding-ada-002";
 
 pub async fn run(options: Options) -> Result<()> {
     let mut sp: Option<spinners::Spinner> = None;
