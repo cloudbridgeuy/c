@@ -6,8 +6,8 @@ use color_eyre::eyre::eyre;
 use color_eyre::eyre::{bail, Result};
 use uuid::Uuid;
 
-const DIMENSION: usize = 1536;
-const DISTANCE: crate::similarity::Distance = crate::similarity::Distance::Cosine;
+use crate::constants::DIMENSION;
+use crate::constants::DISTANCE;
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {

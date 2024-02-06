@@ -1,4 +1,4 @@
 pub mod chat;
 pub mod embeddings;
-pub mod read;
+pub mod sessions;
 pub mod vector;

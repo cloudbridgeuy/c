@@ -22,8 +22,8 @@ pub enum Commands {
     #[clap(name = "vector", alias = "v")]
     Vector(commands::vector::Cli),
     /// Read commands
-    #[clap(name = "read", alias = "r")]
-    Read(commands::read::Options),
+    #[clap(name = "sessions", alias = "s")]
+    Sessions(commands::sessions::Cli),
 }
 
 #[derive(Debug, Parser)]
@@ -64,7 +64,7 @@ async fn run() -> color_eyre::eyre::Result<()> {
         Some(Commands::Chat(options)) => commands::chat::run(options).await,
         Some(Commands::Embeddings(options)) => commands::embeddings::run(options).await,
         Some(Commands::Vector(cli)) => commands::vector::run(cli).await,
-        Some(Commands::Read(options)) => commands::read::run(options).await,
+        Some(Commands::Sessions(cli)) => commands::sessions::run(cli).await,
         None => Err(eyre!(
             "No subcommand provided. Use --help to see available subcommands."
         )),
