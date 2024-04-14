@@ -1,0 +1,3 @@
+[submodule "lib/bat"]
+	path = lib/bat
+	url = git@github.com:sharkdp/bat.git

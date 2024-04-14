@@ -2,7 +2,7 @@ use color_eyre::eyre::Result;
 use crossterm::terminal;
 
 // Markdown language constant string
-const THEME: &str = "ansi";
+const THEME: &str = "tokyonight-storm";
 const LANGUAGE: &str = "markdown";
 
 pub struct CustomPrinter<'a> {
