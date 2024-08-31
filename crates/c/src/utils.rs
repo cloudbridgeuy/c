@@ -16,9 +16,9 @@ const TEMPERATURE_RANGE: RangeInclusive<f32> = 0.0..=2.0;
 const TOP_P_RANGE: RangeInclusive<f32> = 0.0..=1.0;
 /// The range of values for the `top_k` option which goes from 0 to Infinity.
 const TOP_K_RANGE: RangeInclusive<f32> = 0.0..=f32::INFINITY;
-/// The range of values for the `repetition_penalty` option wich goes from 0.0 to 8.0.
+/// The range of values for the `repetition_penalty` option which goes from 0.0 to 8.0.
 const REPETITION_PENALTY_RANGE: RangeInclusive<f32> = 0.0..=8.0;
-/// The range of values for the `repetition_penalty_range` option wich goes from 0 to 2048.
+/// The range of values for the `repetition_penalty_range` option which goes from 0 to 2048.
 const REPETITION_PENALTY_RANGE_RANGE: RangeInclusive<u32> = 0..=2048;
 
 /// Parses the temperature value.

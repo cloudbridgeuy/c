@@ -39,7 +39,11 @@ impl From<Message> for CompletionMessage {
 #[clap(rename_all = "kebab-case")]
 #[serde(rename_all = "kebab-case")]
 enum Model {
+    #[serde(rename = "gpt-4o-mini")]
+    GPT4OMini,
     #[default]
+    #[serde(rename = "gpt-4o")]
+    GPT4O,
     #[serde(rename = "gpt-4-1106-preview")]
     GPT41106Preview,
     #[serde(rename = "gpt-4")]
@@ -55,6 +59,8 @@ enum Model {
 impl Model {
     pub fn as_str(&self) -> &'static str {
         match self {
+            Model::GPT4OMini => "gpt-4o-mini",
+            Model::GPT4O => "gpt-4o",
             Model::GPT41106Preview => "gpt-4-1106-preview",
             Model::GPT4 => "gpt-4",
             Model::GPT432K => "gpt-4-32k",
@@ -65,6 +71,8 @@ impl Model {
 
     pub fn as_u32(&self) -> u32 {
         match self {
+            Model::GPT4OMini => 128000,
+            Model::GPT4O => 128000,
             Model::GPT41106Preview => 128000,
             Model::GPT4 => 8000,
             Model::GPT432K => 32000,
@@ -123,7 +131,7 @@ pub struct CommandOptions {
     #[arg(long)]
     max_tokens: Option<u32>,
     /// What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the
-    /// output more random, while lower valies like 0.2 will make it more focused and
+    /// output more random, while lower values like 0.2 will make it more focused and
     /// deterministic. It's generally recommended to alter this or `top_p` but not both.
     #[clap(long, value_parser = crate::utils::parse_temperature)]
     temperature: Option<f32>,
@@ -156,7 +164,7 @@ pub struct CommandOptions {
     /// detect abuse.
     #[arg(long)]
     user: Option<String>,
-    /// The maximum number of tokens supporte by the model.
+    /// The maximum number of tokens support by the model.
     #[arg(long)]
     max_supported_tokens: Option<u32>,
     /// OpenAI API Key to use. Will default to the environment variable `OPENAI_API_KEY` if not set.
@@ -166,10 +174,10 @@ pub struct CommandOptions {
     /// Silent mode
     #[clap(short, long, action, default_value_t = false)]
     silent: bool,
-    /// Wether to incrementally stream the response using SSE.
+    /// Whether to incrementally stream the response using SSE.
     #[clap(long)]
     stream: bool,
-    /// Wether to pin this message to the message history.
+    /// Whether to pin this message to the message history.
     #[clap(long)]
     pin: bool,
     /// Response output format
@@ -338,7 +346,7 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
                 session,
                 Vendor::OpenAI,
                 session_options,
-                options.model.unwrap_or(Model::default()).as_u32(),
+                options.model.unwrap_or_default().as_u32(),
             );
             session
         }
@@ -347,7 +355,7 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
         let session: Session<SessionOptions> = Session::anonymous(
             Vendor::OpenAI,
             session_options,
-            options.model.unwrap_or(Model::default()).as_u32(),
+            options.model.unwrap_or_default().as_u32(),
         );
         session
     };
@@ -407,7 +415,7 @@ pub async fn run(mut options: CommandOptions) -> Result<()> {
 
         // Save the response to the session
         session.history.push(Message::new(
-            response.choices.get(0).unwrap().message.content.clone(),
+            response.choices.first().unwrap().message.content.clone(),
             Role::Assistant,
             session.meta.pin,
         ));
