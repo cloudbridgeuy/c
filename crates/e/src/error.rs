@@ -1,11 +1,13 @@
 #[derive(thiserror::Error)]
 pub enum Error {
-    // #[error("unable to create snapshot")]
-    // Image(#[from] crate::image::Error),
+    #[error("io error")]
+    Io(#[from] std::io::Error),
+    #[error("unable to stream the api")]
+    EsStream(#[from] es_stream::error::Error),
+    #[error("unable to get value from environment variable")]
+    EnvVar(#[from] std::env::VarError),
     #[error("invalid api")]
     InvalidAPI,
-    #[error("generic error")]
-    Unknown,
 }
 
 pub(crate) fn format_error(

@@ -492,6 +492,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap-stdin"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "471df7896633bfc1e7d3da5b598422891e4cb8931210168ec63ea586e285803f"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "clap_builder"
 version = "4.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -978,12 +987,16 @@ version = "0.0.0"
 dependencies = [
  "bat 0.24.0",
  "clap",
+ "clap-stdin",
  "env_logger 0.11.5",
+ "es_stream",
+ "futures",
  "log",
  "serde",
  "serde_json",
  "serde_yaml",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -1078,6 +1091,22 @@ checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
 dependencies = [
  "cc",
  "libc",
+]
+
+[[package]]
+name = "es_stream"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger 0.11.5",
+ "eventsource-client",
+ "futures",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "ureq",
 ]
 
 [[package]]
@@ -3174,22 +3203,6 @@ name = "std_prelude"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8207e78455ffdf55661170876f88daf85356e4edd54e0a3dbc79586ca1e50cbe"
-
-[[package]]
-name = "stream"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "env_logger 0.11.5",
- "eventsource-client",
- "futures",
- "log",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "ureq",
-]
 
 [[package]]
 name = "strsim"

@@ -1,11 +1,15 @@
 [package]
-name = "stream"
+name = "es_stream"
 version = "0.1.0"
 description = "A very simple Rust library to simplify streaming api interaction with LLMs, free from complex async operations and redundant dependencies."
 license = "MIT"
 repository = "https://github.com/cloudbridgeuy/gpt/tree/main/lib/stream"
 edition = "2021"
 keywords = ["stream", "api", "llm", "api-bindings"]
+
+[lub]
+name = "es_stream"
+path = "src/lib.rs"
 
 [dependencies]
 ureq = { version = "2.10.1", features = ["json"] }
@@ -16,5 +20,7 @@ env_logger = "0.11.5"
 futures = "0.3.30"
 eventsource-client = "0.13.0"
 thiserror = "1.0.63"
+
+[dev-dependencies]
 anyhow = "1.0.86"
 tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }

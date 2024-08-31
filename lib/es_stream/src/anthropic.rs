@@ -189,17 +189,12 @@ struct MessageEvent {
 pub struct Auth {
     pub api_key: String,
     pub version: Option<String>,
-    pub beta: Option<String>,
 }
 
 impl Auth {
     #[must_use]
-    pub fn new(api_key: String, version: Option<String>, beta: Option<String>) -> Self {
-        Self {
-            api_key,
-            version,
-            beta,
-        }
+    pub fn new(api_key: String, version: Option<String>) -> Self {
+        Self { api_key, version }
     }
 
     pub fn from_env() -> Result<Self, Error> {
@@ -208,23 +203,18 @@ impl Auth {
             Err(_) => return Err(Error::AuthError("ANTHROPIC_API_KEY not found".to_string())),
         };
         let version = std::env::var("ANTHROPIC_API_VERSION").ok();
-        let beta = std::env::var("ANTHROPIC_API_BETA").ok();
-        Ok(Self {
-            api_key,
-            beta,
-            version,
-        })
+        Ok(Self { api_key, version })
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Anthropic {
+pub struct Client {
     pub auth: Auth,
     pub api_url: String,
     pub(crate) agent: Agent,
 }
 
-impl Anthropic {
+impl Client {
     pub fn new(auth: Auth, api_url: impl Into<String>) -> Self {
         Self {
             auth,
@@ -242,7 +232,7 @@ impl Anthropic {
     }
 }
 
-impl Anthropic {
+impl Client {
     pub fn create(&self, message_body: &MessageBody) -> ApiResult<MessageResponse> {
         let request_body = match serde_json::to_value(message_body) {
             Ok(body) => body,
@@ -306,22 +296,17 @@ impl Anthropic {
     }
 }
 
-impl Requests for Anthropic {
+impl Requests for Client {
     fn post(&self, sub_url: &str, body: Json) -> ApiResult<Json> {
         log::info!("POST {}/{sub_url}", self.auth.api_key);
         log::debug!("body: {body}");
 
+        let anthropic_version = self.auth.version.as_deref().unwrap_or("2023-06-01");
+
         let response = self
             .agent
             .post(&(self.api_url.clone() + sub_url))
-            .set(
-                "anthropic-version",
-                &self
-                    .auth
-                    .version
-                    .clone()
-                    .unwrap_or("2023-06-01".to_string()),
-            )
+            .set("anthropic-version", anthropic_version)
             .set("content-type", "application/json")
             .set("x-api-key", &self.auth.api_key)
             .send_json(body);
@@ -335,11 +320,9 @@ impl Requests for Anthropic {
         body: Json,
     ) -> Result<impl Stream<Item = Result<es::SSE, es::Error>>, es::Error> {
         let anthropic_version = self.auth.version.as_deref().unwrap_or("2023-06-01");
-        let anthropic_beta = self.auth.beta.as_deref().unwrap_or("messages-2023-12-15");
 
         let client = es::ClientBuilder::for_url(&(self.api_url.clone() + sub_url))?
             .header("anthropic-version", anthropic_version)?
-            .header("anthropic-beta", anthropic_beta)?
             .header("content-type", "application/json")?
             .header("x-api-key", &self.auth.api_key)?
             .method("POST".into())
