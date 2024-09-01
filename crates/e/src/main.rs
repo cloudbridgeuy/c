@@ -3,6 +3,7 @@ use clap::Parser;
 mod anthropic;
 mod args;
 mod error;
+mod google;
 mod openai;
 mod prelude;
 
@@ -18,5 +19,6 @@ async fn main() -> Result<()> {
     match api {
         Api::OpenAi => openai::run(args).await,
         Api::Anthropic => anthropic::run(args).await,
+        Api::Google => google::run(args).await,
     }
 }

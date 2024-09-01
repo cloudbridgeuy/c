@@ -163,11 +163,6 @@ impl Client {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct Thread {
-    something: String,
-}
-
 impl Client {
     pub fn delta<'a>(
         &'a self,
@@ -181,7 +176,7 @@ impl Client {
         };
         log::debug!("request_body: {:#?}", request_body);
 
-        let original_stream = match self.post_stream(CHAT_API, request_body) {
+        let original_stream = match self.post_stream(CHAT_API.to_string(), request_body) {
             Ok(stream) => stream,
             Err(e) => return Err(Error::SseStreamCreation(Box::new(e))),
         };
@@ -214,15 +209,12 @@ impl Client {
 impl Requests for Client {
     fn post_stream(
         &self,
-        sub_url: &str,
+        sub_url: String,
         body: Json,
     ) -> Result<impl Stream<Item = Result<es::SSE, es::Error>>, es::Error> {
         let authorization: &str = &format!("Bearer {}", self.auth.api_key);
 
-        log::debug!("{}", &(self.api_url.clone() + sub_url));
-        log::debug!("{}", self.auth.api_key);
-
-        let client = es::ClientBuilder::for_url(&(self.api_url.clone() + sub_url))?
+        let client = es::ClientBuilder::for_url(&(self.api_url.clone() + &sub_url))?
             .header("content-type", "application/json")?
             .header("authorization", authorization)?
             .method("POST".into())

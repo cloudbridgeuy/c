@@ -15,7 +15,7 @@ pub trait Requests {
     /// - A stream can't be created.
     fn post_stream(
         &self,
-        sub_url: &str,
+        sub_url: String,
         body: Json,
     ) -> Result<impl Stream<Item = Result<es::SSE, es::Error>>, es::Error>;
 }

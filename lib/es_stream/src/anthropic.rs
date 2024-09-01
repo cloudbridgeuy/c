@@ -216,7 +216,7 @@ impl Client {
         };
         log::debug!("request_body: {:#?}", request_body);
 
-        let original_stream = match self.post_stream(MESSAGES_CREATE, request_body) {
+        let original_stream = match self.post_stream(MESSAGES_CREATE.to_string(), request_body) {
             Ok(stream) => stream,
             Err(e) => return Err(Error::SseStreamCreation(Box::new(e))),
         };
@@ -257,12 +257,12 @@ impl Client {
 impl Requests for Client {
     fn post_stream(
         &self,
-        sub_url: &str,
+        sub_url: String,
         body: Json,
     ) -> Result<impl Stream<Item = Result<es::SSE, es::Error>>, es::Error> {
         let anthropic_version = self.auth.version.as_deref().unwrap_or("2023-06-01");
 
-        let client = es::ClientBuilder::for_url(&(self.api_url.clone() + sub_url))?
+        let client = es::ClientBuilder::for_url(&(self.api_url.clone() + &sub_url))?
             .header("anthropic-version", anthropic_version)?
             .header("content-type", "application/json")?
             .header("x-api-key", &self.auth.api_key)?

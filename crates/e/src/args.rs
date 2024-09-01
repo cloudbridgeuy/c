@@ -44,6 +44,7 @@ pub enum Api {
     OpenAi,
     #[default]
     Anthropic,
+    Google,
 }
 
 // From string to API enum
@@ -56,6 +57,10 @@ impl FromStr for Api {
             "openai" => Ok(Api::OpenAi),
             "Anthropic" => Ok(Api::Anthropic),
             "anthropic" => Ok(Api::Anthropic),
+            "google" => Ok(Api::Google),
+            "Google" => Ok(Api::Google),
+            "gemini" => Ok(Api::Google),
+            "Gemini" => Ok(Api::Google),
             _ => Err(Error::InvalidAPI),
         }
     }
