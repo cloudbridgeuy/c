@@ -67,6 +67,10 @@ pub struct Globals {
     #[clap(long, env = "E_PRESET")]
     pub preset: Option<String>,
 
+    /// Templates to use.
+    #[clap(short, long, env = "E_TEMPLATES")]
+    pub templates: Option<Vec<String>>,
+
     /// Additional variables in JSON format
     #[clap(long, env = "E_VARS", value_parser = parse_json)]
     pub vars: Option<Value>,
