@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
         content: "What is the capital of the United States?".to_string(),
     }];
 
-    let body = MessageBody::new("claude-3-opus-20240229", messages, 100);
+    let body = MessageBody::new("claude-3-opus-20240229", messages, 300);
 
     // let mut stream = client.message_stream(&body)?;
     let mut stream = client.delta(&body)?;
