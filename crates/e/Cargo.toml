@@ -26,3 +26,6 @@ thiserror = "1.0.56"
 tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
 clap-stdin = "0.5.1"
 futures = "0.3.30"
+spinners = "4.1.1"
+atty = "0.2.14"
+crossterm = "0.28.0"

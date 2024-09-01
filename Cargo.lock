@@ -985,9 +985,11 @@ checksum = "56ce8c6da7551ec6c462cbaf3bfbc75131ebbfa1c944aeaa9dab51ca1c5f0c3b"
 name = "e"
 version = "0.0.0"
 dependencies = [
+ "atty",
  "bat 0.24.0",
  "clap",
  "clap-stdin",
+ "crossterm",
  "env_logger 0.11.5",
  "es_stream",
  "futures",
@@ -995,6 +997,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "spinners",
  "thiserror",
  "tokio",
 ]

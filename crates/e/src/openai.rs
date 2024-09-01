@@ -40,5 +40,5 @@ pub async fn run(args: Args) -> Result<()> {
 
     let stream = client.delta(&body)?;
 
-    handle_stream(stream).await
+    handle_stream(stream, args.globals.quiet).await
 }

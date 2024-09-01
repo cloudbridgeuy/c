@@ -37,6 +37,10 @@ pub struct Globals {
     /// The api base url.
     #[clap(long, env = "E_API_BASE_URL")]
     pub api_base_url: Option<String>,
+
+    /// Don't run the spinner
+    #[clap(long, env = "E_QUIET", default_value = "false")]
+    pub quiet: bool,
 }
 
 #[derive(ValueEnum, Debug, Default, Clone, Copy, Serialize, Deserialize)]
