@@ -190,7 +190,13 @@ impl Client {
             item.map(|event| match event {
                 es::SSE::Connected(_) => String::default(),
                 es::SSE::Event(ev) => match serde_json::from_str::<ChatCompletionChunk>(&ev.data) {
-                    Ok(mut chunk) => chunk.choices[0].delta.content.take().unwrap_or_default(),
+                    Ok(mut chunk) => {
+                        if chunk.choices.is_empty() {
+                            String::default()
+                        } else {
+                            chunk.choices[0].delta.content.take().unwrap_or_default()
+                        }
+                    }
                     Err(_) => String::default(),
                 },
                 es::SSE::Comment(comment) => {
