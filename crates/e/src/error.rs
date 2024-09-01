@@ -12,6 +12,12 @@ pub enum Error {
     Bat(#[from] bat::error::Error),
     #[error("unable to coherce to u32")]
     TryFrom(#[from] std::num::TryFromIntError),
+    #[error("api not specified")]
+    ApiNotSpecified,
+    #[error("config file error")]
+    ConfigFile(#[from] config_file::ConfigFileError),
+    #[error("infallible error")]
+    Infallible(#[from] std::convert::Infallible),
 }
 
 pub(crate) fn format_error(

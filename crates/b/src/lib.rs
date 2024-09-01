@@ -316,7 +316,7 @@ pub enum ChatsCommands {
         /// The minimum available tokens left to the Model to construct the completion message.
         #[arg(long, default_value = "750")]
         min_available_tokens: Option<u32>,
-        /// The maximum number of tokens supporte by the model.
+        /// The maximum number of tokens support by the model.
         #[arg(long, default_value = "4096")]
         max_supported_tokens: Option<u32>,
         /// A list of functions the model may generate JSON inputs for, provided as JSON.

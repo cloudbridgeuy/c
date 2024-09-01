@@ -45,7 +45,7 @@ pub struct MessageBody {
     /// Input messages.
     pub messages: Vec<Message>,
     /// The maximum number of tokens to generate before stopping.
-    pub max_tokens: i32,
+    pub max_tokens: u32,
     /// An object describing metadata about the request.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, String>>,
@@ -72,7 +72,7 @@ pub struct MessageBody {
 impl MessageBody {
     /// Creates a new `MessageBody`
     #[must_use]
-    pub fn new(model: &str, messages: Vec<Message>, max_tokens: i32) -> Self {
+    pub fn new(model: &str, messages: Vec<Message>, max_tokens: u32) -> Self {
         Self {
             model: model.into(),
             messages,

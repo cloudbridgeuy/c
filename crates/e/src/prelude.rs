@@ -2,6 +2,7 @@ use futures::stream::{Stream, TryStreamExt};
 use std::io::Write;
 
 pub use crate::args::{Api, Args};
+pub use crate::config::Config;
 pub use crate::error::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;

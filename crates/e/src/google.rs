@@ -16,14 +16,19 @@ pub async fn run(args: Args) -> Result<()> {
             std::env::var(environment_variable)?
         }
     };
+    log::info!("key: {}", key);
+
     let url = match args.globals.api_base_url {
         Some(url) => url,
         None => DEFAULT_URL.to_string(),
     };
+    log::info!("url: {}", url);
 
     let auth = google::Auth::new(key);
+    log::info!("auth: {:#?}", auth);
 
     let client = google::Client::new(auth, url);
+    log::info!("client: {:#?}", client);
 
     let contents = vec![google::Content {
         parts: vec![google::Part {
@@ -50,14 +55,16 @@ pub async fn run(args: Args) -> Result<()> {
     }
 
     body.generation_config = Some(google::GenerationConfig {
-        max_output_tokens: Some(u32::try_from(args.globals.max_tokens)?),
+        max_output_tokens: Some(u32::try_from(args.globals.max_tokens.unwrap_or(4096))?),
         temperature: args.globals.temperature,
         top_p: args.globals.top_p,
         top_k: args.globals.top_k,
         ..Default::default()
     });
 
+    log::info!("body: {:#?}", body);
+
     let stream = client.delta(&body)?;
 
-    handle_stream(stream, args.globals.quiet).await
+    handle_stream(stream, args.globals.quiet.unwrap_or(false)).await
 }

@@ -1,6 +1,7 @@
 use clap::{Parser, ValueEnum};
 use clap_stdin::MaybeStdin;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::str::FromStr;
 
 use crate::prelude::*;
@@ -11,16 +12,16 @@ pub struct Globals {
     pub prompt: MaybeStdin<String>,
 
     /// The API provider to use.
-    #[clap(short, long, default_value = "anthropic", env = "E_API", value_enum)]
-    pub api: String,
+    #[clap(short, long, env = "E_API", value_enum)]
+    pub api: Option<String>,
 
     /// The LLM Model to use
     #[clap(short, long, env = "E_MODEL")]
     pub model: Option<String>,
 
     /// The maximum amount of tokens to return.
-    #[clap(long, env = "E_MAX_TOKENS", default_value = "4096")]
-    pub max_tokens: i32,
+    #[clap(long, env = "E_MAX_TOKENS")]
+    pub max_tokens: Option<u32>,
 
     /// The environment variable to use to get the access token for the api.
     #[clap(long, env = "E_API_ENV")]
@@ -39,8 +40,8 @@ pub struct Globals {
     pub api_base_url: Option<String>,
 
     /// Don't run the spinner
-    #[clap(long, env = "E_QUIET", default_value = "false")]
-    pub quiet: bool,
+    #[clap(long, env = "E_QUIET")]
+    pub quiet: Option<bool>,
 
     /// Add a system message to the request.
     #[clap(long, env = "E_SYSTEM")]
@@ -57,9 +58,27 @@ pub struct Globals {
     /// Top-K value.
     #[clap(long, env = "E_TOP_K")]
     pub top_k: Option<u32>,
+
+    /// Config file
+    #[clap(long, env = "E_CONFIG_FILE", default_value = "~/.config/e.toml")]
+    pub config_file: String,
+
+    /// Preset configuration
+    #[clap(long, env = "E_PRESET")]
+    pub preset: Option<String>,
+
+    /// Additional variables in JSON format
+    #[clap(long, env = "E_VARS", value_parser = parse_json)]
+    pub vars: Option<Value>,
+}
+
+/// Custom parser function for JSON values
+fn parse_json(s: &str) -> std::result::Result<Value, serde_json::Error> {
+    serde_json::from_str(s)
 }
 
 #[derive(ValueEnum, Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Api {
     OpenAi,
     #[default]

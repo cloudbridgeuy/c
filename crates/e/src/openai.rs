@@ -16,14 +16,22 @@ pub async fn run(args: Args) -> Result<()> {
             std::env::var(environment_variable)?
         }
     };
+    log::info!("key: {}", key);
+
     let url = match args.globals.api_base_url {
         Some(url) => url,
         None => DEFAULT_URL.to_string(),
     };
 
+    log::info!("url: {}", url);
+
     let auth = openai::Auth::new(key);
 
+    log::info!("auth: {:#?}", auth);
+
     let client = openai::Client::new(auth, url);
+
+    log::info!("client: {:#?}", client);
 
     let messages = vec![openai::Message {
         role: openai::Role::User,
@@ -49,8 +57,13 @@ pub async fn run(args: Args) -> Result<()> {
 
     body.temperature = args.globals.temperature;
     body.top_p = args.globals.top_p;
+    if let Some(max_tokens) = args.globals.max_tokens {
+        body.max_tokens = Some(u32::try_from(max_tokens).unwrap());
+    };
+
+    log::info!("body: {:#?}", body);
 
     let stream = client.delta(&body)?;
 
-    handle_stream(stream, args.globals.quiet).await
+    handle_stream(stream, args.globals.quiet.unwrap_or(false)).await
 }

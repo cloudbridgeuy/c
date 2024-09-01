@@ -16,14 +16,21 @@ pub async fn run(args: Args) -> Result<()> {
             std::env::var(environment_variable)?
         }
     };
+    log::info!("key: {}", key);
+
     let url = match args.globals.api_base_url {
         Some(url) => url,
         None => DEFAULT_URL.to_string(),
     };
+    log::info!("url: {}", url);
 
     let auth = anthropic::Auth::new(key, args.globals.api_version);
 
+    log::info!("auth: {:#?}", auth);
+
     let client = anthropic::Client::new(auth, url);
+
+    log::info!("client: {:#?}", client);
 
     let messages = vec![anthropic::Message {
         role: anthropic::Role::User,
@@ -36,7 +43,7 @@ pub async fn run(args: Args) -> Result<()> {
             .unwrap_or(DEFAULT_MODEL.to_string())
             .as_ref(),
         messages,
-        args.globals.max_tokens,
+        args.globals.max_tokens.unwrap_or(4096),
     );
 
     body.system = args.globals.system;
@@ -44,7 +51,9 @@ pub async fn run(args: Args) -> Result<()> {
     body.top_p = args.globals.top_p;
     body.top_k = args.globals.top_k;
 
+    log::info!("body: {:#?}", body);
+
     let stream = client.delta(&body)?;
 
-    handle_stream(stream, args.globals.quiet).await
+    handle_stream(stream, args.globals.quiet.unwrap_or(false)).await
 }
