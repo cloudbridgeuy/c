@@ -6,6 +6,7 @@ mod error;
 mod google;
 mod openai;
 mod prelude;
+mod printer;
 
 use crate::prelude::*;
 

@@ -11,6 +11,8 @@ pub async fn handle_stream(
         + std::marker::Unpin,
     quiet: bool,
 ) -> Result<()> {
+    let mut previous_output = String::new();
+    let mut accumulated_content_bytes: Vec<u8> = Vec::new();
     let mut sp = if !quiet {
         Some(spinners::Spinner::new(
             spinners::Spinners::OrangeBluePulse,
@@ -30,8 +32,28 @@ pub async fn handle_stream(
             crossterm::execute!(std::io::stdout(), crossterm::cursor::MoveToColumn(0))?;
         }
 
-        print!("{text}");
+        accumulated_content_bytes.extend_from_slice(text.as_bytes());
+
+        let output = crate::printer::CustomPrinter::new()?
+            .input_from_bytes(&accumulated_content_bytes)
+            .print()?;
+
+        let unprinted_lines = output
+            .lines()
+            .skip(if previous_output.lines().count() == 0 {
+                0
+            } else {
+                previous_output.lines().count() - 1
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        crossterm::execute!(std::io::stdout(), crossterm::cursor::MoveToColumn(0))?;
+        print!("{unprinted_lines}");
         std::io::stdout().flush()?;
+
+        // Update the previous output
+        previous_output = output;
     }
 
     Ok(())

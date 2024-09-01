@@ -8,6 +8,8 @@ pub enum Error {
     EnvVar(#[from] std::env::VarError),
     #[error("invalid api")]
     InvalidAPI,
+    #[error("unable to print with bat")]
+    Bat(#[from] bat::error::Error),
 }
 
 pub(crate) fn format_error(
