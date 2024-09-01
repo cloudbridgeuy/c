@@ -5,7 +5,7 @@ use crate::prelude::*;
 const DEFAULT_URL: &str = "https://api.openai.com/v1";
 const DEFAULT_MODEL: &str = "gpt-4o";
 
-pub async fn run(args: Args) -> Result<()> {
+pub async fn run(prompt: String, args: Args) -> Result<()> {
     let key = match args.globals.api_key {
         Some(key) => key,
         None => {
@@ -35,7 +35,7 @@ pub async fn run(args: Args) -> Result<()> {
 
     let messages = vec![openai::Message {
         role: openai::Role::User,
-        content: args.globals.prompt.into_inner(),
+        content: prompt,
     }];
 
     let mut body = openai::MessageBody::new(
@@ -58,7 +58,7 @@ pub async fn run(args: Args) -> Result<()> {
     body.temperature = args.globals.temperature;
     body.top_p = args.globals.top_p;
     if let Some(max_tokens) = args.globals.max_tokens {
-        body.max_tokens = Some(u32::try_from(max_tokens).unwrap());
+        body.max_tokens = Some(max_tokens);
     };
 
     log::info!("body: {:#?}", body);

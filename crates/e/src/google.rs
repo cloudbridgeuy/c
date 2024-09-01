@@ -5,7 +5,7 @@ use crate::prelude::*;
 const DEFAULT_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL: &str = "gemini-1.5-pro";
 
-pub async fn run(args: Args) -> Result<()> {
+pub async fn run(prompt: String, args: Args) -> Result<()> {
     let key = match args.globals.api_key {
         Some(key) => key,
         None => {
@@ -31,9 +31,7 @@ pub async fn run(args: Args) -> Result<()> {
     log::info!("client: {:#?}", client);
 
     let contents = vec![google::Content {
-        parts: vec![google::Part {
-            text: args.globals.prompt.into_inner(),
-        }],
+        parts: vec![google::Part { text: prompt }],
         role: google::Role::User,
     }];
 
@@ -55,7 +53,7 @@ pub async fn run(args: Args) -> Result<()> {
     }
 
     body.generation_config = Some(google::GenerationConfig {
-        max_output_tokens: Some(u32::try_from(args.globals.max_tokens.unwrap_or(4096))?),
+        max_output_tokens: Some(args.globals.max_tokens.unwrap_or(4096)),
         temperature: args.globals.temperature,
         top_p: args.globals.top_p,
         top_k: args.globals.top_k,

@@ -356,7 +356,7 @@ impl ChatsApi {
 
                             log::debug!("Response: {:?}", chunk);
 
-                            if let Some(choice) = &chunk.choices.get(0) {
+                            if let Some(choice) = &chunk.choices.first() {
                                 if let Some(delta) = &choice.delta {
                                     if let Some(content) = &delta.content {
                                         let mut accumulator = acc.lock().await;

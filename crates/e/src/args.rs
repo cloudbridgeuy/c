@@ -8,7 +8,12 @@ use crate::prelude::*;
 
 #[derive(Debug, clap::Args)]
 pub struct Globals {
+    /// Hidden prompt to support prompting from stdin and as an argument
+    #[clap(default_value = "-", hide = true)]
+    pub stdin: MaybeStdin<String>,
+
     /// The user message prompt
+    #[clap(default_value = "", hide = true)]
     pub prompt: MaybeStdin<String>,
 
     /// The API provider to use.

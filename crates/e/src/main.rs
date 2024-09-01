@@ -26,6 +26,10 @@ async fn main() -> Result<()> {
 
     log::info!("info: {:#?}", args.globals);
 
+    let prompt = args.globals.prompt.to_string();
+    let stdin = args.globals.stdin.to_string();
+    let prompt = format!("{}\n{}", stdin, prompt);
+
     let home = std::env::var("HOME")?;
     let path = args.globals.config_file.clone().replace('~', &home);
 
@@ -123,9 +127,9 @@ async fn main() -> Result<()> {
     log::info!("globals: {:#?}", args.globals);
 
     match api {
-        Some(Api::OpenAi) => openai::run(args).await,
-        Some(Api::Anthropic) => anthropic::run(args).await,
-        Some(Api::Google) => google::run(args).await,
+        Some(Api::OpenAi) => openai::run(prompt, args).await,
+        Some(Api::Anthropic) => anthropic::run(prompt, args).await,
+        Some(Api::Google) => google::run(prompt, args).await,
         None => Err(Error::ApiNotSpecified),
     }
 }

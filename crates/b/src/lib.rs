@@ -122,7 +122,7 @@ pub struct Cli {
     /// Silent mode
     #[clap(short, long, action, default_value_t = false)]
     pub silent: bool,
-    /// Wether to incrementally stream the response using SSE.
+    /// Wither to incrementally stream the response using SSE.
     #[clap(long)]
     pub stream: bool,
 }
@@ -241,7 +241,7 @@ pub enum AnthropicCommands {
         /// tasks.
         #[clap(long)]
         temperature: Option<f32>,
-        /// Only sample fromt the top `K` options of each subsequent token. Used to remove "long
+        /// Only sample from the top `K` options of each subsequent token. Used to remove "long
         /// tail" low probability responses. Defaults to -1, which disables it.
         #[clap(long)]
         top_k: Option<f32>,
@@ -280,7 +280,7 @@ pub enum ChatsCommands {
         #[arg(long)]
         max_tokens: Option<u32>,
         /// What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the
-        /// output more random, while lower valies like 0.2 will make it more focused and
+        /// output more random, while lower values like 0.2 will make it more focused and
         /// deterministic. It's generally recommended to alter this or `top_p` but not both.
         #[arg(long)]
         temperature: Option<f32>,
@@ -347,7 +347,7 @@ pub enum EditsCommands {
         #[arg(long)]
         instruction: String,
         /// What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the
-        /// output more random, while lower valies like 0.2 will make it more focused and
+        /// output more random, while lower values like 0.2 will make it more focused and
         /// deterministic. It's generally recommended to alter this or `top_p` but not both.
         #[arg(long)]
         temperature: Option<f32>,
@@ -382,7 +382,7 @@ pub enum CompletionsCommands {
         #[arg(long)]
         max_tokens: Option<u32>,
         /// What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the
-        /// output more random, while lower valies like 0.2 will make it more focused and
+        /// output more random, while lower values like 0.2 will make it more focused and
         /// deterministic. It's generally recommended to alter this or `top_p` but not both.
         #[arg(long)]
         temperature: Option<f32>,

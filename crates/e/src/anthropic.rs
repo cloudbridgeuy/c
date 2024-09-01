@@ -5,7 +5,7 @@ use crate::prelude::*;
 const DEFAULT_URL: &str = "https://api.anthropic.com/v1";
 const DEFAULT_MODEL: &str = "claude-3-5-sonnet-20240620";
 
-pub async fn run(args: Args) -> Result<()> {
+pub async fn run(prompt: String, args: Args) -> Result<()> {
     let key = match args.globals.api_key {
         Some(key) => key,
         None => {
@@ -34,7 +34,7 @@ pub async fn run(args: Args) -> Result<()> {
 
     let messages = vec![anthropic::Message {
         role: anthropic::Role::User,
-        content: args.globals.prompt.into_inner(),
+        content: prompt,
     }];
 
     let mut body = anthropic::MessageBody::new(
