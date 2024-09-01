@@ -41,6 +41,10 @@ pub struct Globals {
     /// Don't run the spinner
     #[clap(long, env = "E_QUIET", default_value = "false")]
     pub quiet: bool,
+
+    /// Add a system message to the request.
+    #[clap(long, env = "E_SYSTEM")]
+    pub system: Option<String>,
 }
 
 #[derive(ValueEnum, Debug, Default, Clone, Copy, Serialize, Deserialize)]

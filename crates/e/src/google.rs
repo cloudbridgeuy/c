@@ -32,13 +32,22 @@ pub async fn run(args: Args) -> Result<()> {
         role: google::Role::User,
     }];
 
-    let body = google::MessageBody::new(
+    let mut body = google::MessageBody::new(
         args.globals
             .model
             .unwrap_or(DEFAULT_MODEL.to_string())
             .as_ref(),
         contents,
     );
+
+    if let Some(system) = args.globals.system {
+        let system_message = google::Content {
+            parts: vec![google::Part { text: system }],
+            role: google::Role::User,
+        };
+
+        body.contents.insert(0, system_message);
+    }
 
     let stream = client.delta(&body)?;
 

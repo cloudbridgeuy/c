@@ -30,7 +30,7 @@ pub async fn run(args: Args) -> Result<()> {
         content: args.globals.prompt.into_inner(),
     }];
 
-    let body = anthropic::MessageBody::new(
+    let mut body = anthropic::MessageBody::new(
         args.globals
             .model
             .unwrap_or(DEFAULT_MODEL.to_string())
@@ -38,6 +38,8 @@ pub async fn run(args: Args) -> Result<()> {
         messages,
         args.globals.max_tokens,
     );
+
+    body.system = args.globals.system;
 
     let stream = client.delta(&body)?;
 

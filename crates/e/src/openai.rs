@@ -30,13 +30,22 @@ pub async fn run(args: Args) -> Result<()> {
         content: args.globals.prompt.into_inner(),
     }];
 
-    let body = openai::MessageBody::new(
+    let mut body = openai::MessageBody::new(
         args.globals
             .model
             .unwrap_or(DEFAULT_MODEL.to_string())
             .as_ref(),
         messages,
     );
+
+    if let Some(system) = args.globals.system {
+        let system_message = openai::Message {
+            role: openai::Role::System,
+            content: system,
+        };
+
+        body.messages.insert(0, system_message);
+    }
 
     let stream = client.delta(&body)?;
 
