@@ -3,10 +3,9 @@ use futures::stream::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use ureq::{Agent, AgentBuilder};
 
 use crate::error::Error;
-use crate::requests::{ApiResult, Json, Requests};
+use crate::requests::{Json, Requests};
 
 // Messages API
 const MESSAGES_CREATE: &str = "/messages";
@@ -25,35 +24,17 @@ pub struct Content {
     pub text: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Message {
     pub role: Role,
     pub content: String,
 }
 
-impl Clone for Message {
-    fn clone(&self) -> Self {
-        Self {
-            role: self.role.clone(),
-            content: self.content.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     Assistant,
     User,
-}
-
-impl Clone for Role {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Assistant => Self::Assistant,
-            Self::User => Self::User,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -73,7 +54,7 @@ pub struct MessageBody {
     pub stop_sequences: Option<Vec<String>>,
     /// Whether to incrementally stream the response using server-sent events.
     #[serde(skip_serializing_if = "Option::is_none")]
-    stream: Option<bool>,
+    pub stream: Option<bool>,
     /// System prompt
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<String>,
@@ -211,7 +192,6 @@ impl Auth {
 pub struct Client {
     pub auth: Auth,
     pub api_url: String,
-    pub(crate) agent: Agent,
 }
 
 impl Client {
@@ -219,33 +199,11 @@ impl Client {
         Self {
             auth,
             api_url: api_url.into(),
-            agent: AgentBuilder::new().build(),
-        }
-    }
-
-    pub fn new_with_agent(auth: Auth, api_url: &str, agent: AgentBuilder) -> Self {
-        Self {
-            auth,
-            api_url: api_url.to_string(),
-            agent: agent.build(),
         }
     }
 }
 
 impl Client {
-    pub fn create(&self, message_body: &MessageBody) -> ApiResult<MessageResponse> {
-        let request_body = match serde_json::to_value(message_body) {
-            Ok(body) => body,
-            Err(e) => return Err(Error::Serde(e)),
-        };
-        let res = self.post(MESSAGES_CREATE, request_body)?;
-        let response: MessageResponse = match serde_json::from_value(res) {
-            Ok(r) => r,
-            Err(e) => return Err(Error::Serde(e)),
-        };
-        Ok(response)
-    }
-
     pub fn delta<'a>(
         &'a self,
         message_body: &'a MessageBody,
@@ -297,23 +255,6 @@ impl Client {
 }
 
 impl Requests for Client {
-    fn post(&self, sub_url: &str, body: Json) -> ApiResult<Json> {
-        log::info!("POST {}/{sub_url}", self.auth.api_key);
-        log::debug!("body: {body}");
-
-        let anthropic_version = self.auth.version.as_deref().unwrap_or("2023-06-01");
-
-        let response = self
-            .agent
-            .post(&(self.api_url.clone() + sub_url))
-            .set("anthropic-version", anthropic_version)
-            .set("content-type", "application/json")
-            .set("x-api-key", &self.auth.api_key)
-            .send_json(body);
-
-        crate::requests::deal_response(response, sub_url)
-    }
-
     fn post_stream(
         &self,
         sub_url: &str,

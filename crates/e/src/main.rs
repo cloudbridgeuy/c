@@ -3,6 +3,7 @@ use clap::Parser;
 mod anthropic;
 mod args;
 mod error;
+mod openai;
 mod prelude;
 
 use crate::prelude::*;
@@ -14,14 +15,8 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     let api: Api = args.globals.api.parse()?;
 
-    let result = match api {
-        Api::OpenAi => todo!(),
+    match api {
+        Api::OpenAi => openai::run(args).await,
         Api::Anthropic => anthropic::run(args).await,
-    };
-
-    if result.is_err() {
-        println!("{:#?}", result);
     }
-
-    Ok(())
 }
