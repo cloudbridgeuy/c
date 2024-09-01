@@ -122,8 +122,6 @@ async fn main() -> Result<()> {
 
     log::info!("globals: {:#?}", args.globals);
 
-    println!("{:#?}", args.globals.vars);
-
     match api {
         Some(Api::OpenAi) => openai::run(args).await,
         Some(Api::Anthropic) => anthropic::run(args).await,
