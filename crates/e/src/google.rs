@@ -49,6 +49,14 @@ pub async fn run(args: Args) -> Result<()> {
         body.contents.insert(0, system_message);
     }
 
+    body.generation_config = Some(google::GenerationConfig {
+        max_output_tokens: Some(u32::try_from(args.globals.max_tokens)?),
+        temperature: args.globals.temperature,
+        top_p: args.globals.top_p,
+        top_k: args.globals.top_k,
+        ..Default::default()
+    });
+
     let stream = client.delta(&body)?;
 
     handle_stream(stream, args.globals.quiet).await

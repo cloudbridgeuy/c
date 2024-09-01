@@ -63,7 +63,7 @@ pub struct MessageBody {
     pub temperature: Option<f32>,
     /// Only sample from the top K options for each subsequent token.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_k: Option<f32>,
+    pub top_k: Option<u32>,
     /// Use nucleus sampling.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,

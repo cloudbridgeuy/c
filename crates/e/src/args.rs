@@ -45,6 +45,18 @@ pub struct Globals {
     /// Add a system message to the request.
     #[clap(long, env = "E_SYSTEM")]
     pub system: Option<String>,
+
+    /// Temperature value.
+    #[clap(long, env = "E_TEMPERATURE")]
+    pub temperature: Option<f32>,
+
+    /// Top-P value.
+    #[clap(long, env = "E_TOP_P")]
+    pub top_p: Option<f32>,
+
+    /// Top-K value.
+    #[clap(long, env = "E_TOP_K")]
+    pub top_k: Option<u32>,
 }
 
 #[derive(ValueEnum, Debug, Default, Clone, Copy, Serialize, Deserialize)]

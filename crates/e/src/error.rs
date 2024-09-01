@@ -10,6 +10,8 @@ pub enum Error {
     InvalidAPI,
     #[error("unable to print with bat")]
     Bat(#[from] bat::error::Error),
+    #[error("unable to coherce to u32")]
+    TryFrom(#[from] std::num::TryFromIntError),
 }
 
 pub(crate) fn format_error(

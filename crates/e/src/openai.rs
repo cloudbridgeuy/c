@@ -47,6 +47,9 @@ pub async fn run(args: Args) -> Result<()> {
         body.messages.insert(0, system_message);
     }
 
+    body.temperature = args.globals.temperature;
+    body.top_p = args.globals.top_p;
+
     let stream = client.delta(&body)?;
 
     handle_stream(stream, args.globals.quiet).await

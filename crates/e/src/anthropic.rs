@@ -40,6 +40,9 @@ pub async fn run(args: Args) -> Result<()> {
     );
 
     body.system = args.globals.system;
+    body.temperature = args.globals.temperature;
+    body.top_p = args.globals.top_p;
+    body.top_k = args.globals.top_k;
 
     let stream = client.delta(&body)?;
 
