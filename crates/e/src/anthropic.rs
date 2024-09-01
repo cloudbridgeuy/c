@@ -1,6 +1,4 @@
 use es_stream::anthropic;
-use futures::stream::TryStreamExt;
-use std::io::Write;
 
 use crate::prelude::*;
 
@@ -41,13 +39,7 @@ pub async fn run(args: Args) -> Result<()> {
         args.globals.max_tokens,
     );
 
-    // let mut stream = client.message_stream(&body)?;
-    let mut stream = client.delta(&body)?;
+    let stream = client.delta(&body)?;
 
-    while let Ok(Some(text)) = stream.try_next().await {
-        print!("{text}");
-        std::io::stdout().flush()?;
-    }
-
-    Ok(())
+    handle_stream(stream).await
 }
