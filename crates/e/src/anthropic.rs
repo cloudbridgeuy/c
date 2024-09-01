@@ -4,6 +4,9 @@ use std::io::Write;
 
 use crate::prelude::*;
 
+const DEFAULT_URL: &str = "https://api.anthropic.com/v1";
+const DEFAULT_MODEL: &str = "claude-3-5-sonnet-20240620";
+
 pub async fn run(args: Args) -> Result<()> {
     let key = match args.globals.api_key {
         Some(key) => key,
@@ -17,7 +20,7 @@ pub async fn run(args: Args) -> Result<()> {
     };
     let url = match args.globals.api_base_url {
         Some(url) => url,
-        None => "https://api.anthropic.com/v1/".to_string(),
+        None => DEFAULT_URL.to_string(),
     };
 
     let auth = anthropic::Auth::new(key, args.globals.api_version);
@@ -32,7 +35,7 @@ pub async fn run(args: Args) -> Result<()> {
     let body = anthropic::MessageBody::new(
         args.globals
             .model
-            .unwrap_or("claude-3-5-sonnet-20240620".to_string())
+            .unwrap_or(DEFAULT_MODEL.to_string())
             .as_ref(),
         messages,
         args.globals.max_tokens,

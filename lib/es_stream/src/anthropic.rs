@@ -9,7 +9,7 @@ use crate::error::Error;
 use crate::requests::{ApiResult, Json, Requests};
 
 // Messages API
-const MESSAGES_CREATE: &str = "messages";
+const MESSAGES_CREATE: &str = "/messages";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Usage {

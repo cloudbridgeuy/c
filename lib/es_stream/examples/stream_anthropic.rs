@@ -10,7 +10,7 @@ async fn main() -> Result<()> {
     let key = std::env::var("ANTHROPIC_API_KEY")?;
 
     let auth = Auth::new(key, None);
-    let client = Client::new(auth, "https://api.anthropic.com/v1/");
+    let client = Client::new(auth, "https://api.anthropic.com/v1");
 
     let messages = vec![Message {
         role: Role::User,
