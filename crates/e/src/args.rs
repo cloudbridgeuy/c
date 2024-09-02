@@ -17,79 +17,79 @@ pub struct Globals {
     pub prompt: MaybeStdin<String>,
 
     /// The API provider to use.
-    #[clap(short, long, env = "E_API", value_enum)]
+    #[clap(short, long, value_enum)]
     pub api: Option<String>,
 
     /// The LLM Model to use
-    #[clap(short, long, env = "E_MODEL")]
+    #[clap(short, long)]
     pub model: Option<String>,
 
     /// The maximum amount of tokens to return.
-    #[clap(long, env = "E_MAX_TOKENS")]
+    #[clap(long)]
     pub max_tokens: Option<u32>,
 
     /// The minimum amount of tokens to return.
-    #[clap(long, env = "E_MIN_TOKENS")]
+    #[clap(long)]
     pub min_tokens: Option<u32>,
 
     /// The environment variable to use to get the access token for the api.
-    #[clap(long, env = "E_API_ENV")]
+    #[clap(long)]
     pub api_env: Option<String>,
 
     /// The api version to use.
-    #[clap(long, env = "E_API_VERSION")]
+    #[clap(long)]
     pub api_version: Option<String>,
 
     /// The api key to use (will override the value of the environment variable.)
-    #[clap(long, env = "E_API_KEY")]
+    #[clap(long)]
     pub api_key: Option<String>,
 
     /// The api base url.
-    #[clap(long, env = "E_API_BASE_URL")]
+    #[clap(long)]
     pub api_base_url: Option<String>,
 
     /// Don't run the spinner
-    #[clap(long, env = "E_QUIET")]
+    #[clap(long)]
     pub quiet: Option<bool>,
 
     /// Add a system message to the request.
-    #[clap(long, env = "E_SYSTEM")]
+    #[clap(long)]
     pub system: Option<String>,
 
     /// Temperature value.
-    #[clap(long, env = "E_TEMPERATURE")]
+    #[clap(long)]
     pub temperature: Option<f32>,
 
     /// Top-P value.
-    #[clap(long, env = "E_TOP_P")]
+    #[clap(long)]
     pub top_p: Option<f32>,
 
     /// Top-K value.
-    #[clap(long, env = "E_TOP_K")]
+    #[clap(long)]
     pub top_k: Option<u32>,
 
     /// Config file
-    #[clap(long, env = "E_CONFIG_FILE", default_value = "~/.config/e.toml")]
+    #[clap(long)]
     pub config_file: String,
 
     /// Preset configuration
-    #[clap(short, long, env = "E_PRESET")]
+    #[clap(short, long)]
     pub preset: Option<String>,
 
     /// Additional variables in JSON format
-    #[clap(long, env = "E_VARS", default_value="{}", value_parser = parse_json)]
+    #[clap(long, value_parser = parse_json)]
     pub vars: Option<Value>,
 
     /// Suffix prompt
-    #[clap(long, env = "E_SUFFIX")]
+    #[clap(long)]
     pub suffix: Option<String>,
 
     /// Language to use for syntax highlight
-    #[clap(long, env = "E_LANGUAGE", default_value = "markdown")]
+    #[clap(long)]
     pub language: String,
 
     /// Prompt template to use
-    #[clap(short, long, env = "E_TEMPLATE")]
+    #[clap(short, long)]
     pub template: Option<String>,
 
     /// Prints the rendered template instead of calling the LLM.
@@ -143,8 +143,25 @@ impl FromStr for Api {
 }
 
 #[derive(Debug, Parser)]
-#[command(name = "e")]
+#[command(name = "e", version = "0.1.0")]
 #[command(about = "Interact with LLMs through the terminal")]
+#[command(
+    long_about = "This Rust-based CLI enables users to interact with various Large Language Models
+(LLMs) directly from the terminal. Through this tool, you can send prompts to different
+APIs, such as OpenAI, Anthropic, Google, Mistral, and Mistral FIM, and receive and handle
+responses from these models.
+
+The tool offers extensive configuration options, allowing you
+to specify parameters like model type, maximum and minimum tokens, temperature, top-p
+sampling, system messages, and more. You can set these options via command line arguments
+or environment variables. Additionally, it supports preset configurations and prompt
+templates, enabling more advanced and customizable usage scenarios.
+
+The CLI can format and
+highlight the model's responses using syntax highlighting, making it easier to read the
+output in the terminal. It also includes functionality to handle streaming responses
+efficiently, ensuring a smooth user experience when interacting with the LLMs."
+)]
 pub struct Args {
     #[clap(flatten)]
     pub globals: Globals,
