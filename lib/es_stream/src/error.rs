@@ -1,12 +1,11 @@
-use eventsource_client as es;
 use thiserror::Error;
 
 /// Error type returned from this library's functions
 #[derive(Debug, Error)]
 pub enum Error {
     /// An error when creating the SSE stream.
-    #[error("sse stream creation error: {0}")]
-    SseStreamCreation(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
+    #[error("Eventsource Client error: {0}")]
+    EventsourceClient(#[from] eventsource_client::Error),
     /// An Error returned by the API
     #[error("AuthError Error: {0}")]
     AuthError(String),
@@ -22,13 +21,4 @@ pub enum Error {
     /// An Error occurred when performing an IO operation.
     #[error("io error: {0}")]
     IO(#[from] std::io::Error),
-    /// EventSource error.
-    #[error("eventsource error: {0}")]
-    ES(#[source] es::Error),
-}
-
-impl From<es::Error> for Error {
-    fn from(error: es::Error) -> Self {
-        Self::ES(error)
-    }
 }

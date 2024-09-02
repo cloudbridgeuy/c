@@ -218,10 +218,13 @@ impl Client {
 
         let original_stream = match self.post_stream(MESSAGES_CREATE.to_string(), request_body) {
             Ok(stream) => stream,
-            Err(e) => return Err(Error::SseStreamCreation(Box::new(e))),
+            Err(e) => return Err(Error::EventsourceClient(e)),
         };
 
         let mapped_stream = original_stream.map(|item| {
+            if item.is_err() {
+                return Err(Error::EventsourceClient(item.err().unwrap()));
+            }
             item.map(|event| match event {
                 es::SSE::Connected(_) => String::default(),
                 es::SSE::Event(ev) => match serde_json::from_str::<MessageEvent>(&ev.data) {
