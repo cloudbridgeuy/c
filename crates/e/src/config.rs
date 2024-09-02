@@ -28,7 +28,8 @@ pub struct Template {
     pub name: String,
     pub description: Option<String>,
     pub template: String,
-    pub vars: Value,
+    pub vars: Option<Value>,
+    pub system: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
