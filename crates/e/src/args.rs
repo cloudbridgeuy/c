@@ -77,7 +77,7 @@ pub struct Globals {
     pub preset: Option<String>,
 
     /// Additional variables in JSON format
-    #[clap(long, env = "E_VARS", value_parser = parse_json)]
+    #[clap(long, env = "E_VARS", default_value="{}", value_parser = parse_json)]
     pub vars: Option<Value>,
 
     /// Suffix prompt

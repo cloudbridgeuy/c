@@ -28,7 +28,7 @@ pub(crate) fn format_error(
     e: &impl std::error::Error,
     f: &mut std::fmt::Formatter,
 ) -> std::fmt::Result {
-    write!(f, "error: {e}")?;
+    write!(f, "{e}")?;
 
     let mut source = e.source();
 

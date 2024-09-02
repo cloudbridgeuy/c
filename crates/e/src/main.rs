@@ -14,7 +14,8 @@ mod printer;
 
 use crate::prelude::*;
 
-const TEMPLATE_NAME: &str = "template";
+const SYSTEM_TEMPLATE: &str = "system";
+const PROMPT_TEMPLATE: &str = "prompt";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -28,8 +29,14 @@ async fn main() -> Result<()> {
         None
     };
 
-    let prompt = args.globals.prompt.to_string();
-    let stdin = args.globals.stdin.to_string();
+    let mut prompt = args.globals.prompt.to_string();
+    let mut stdin = args.globals.stdin.to_string();
+
+    // Turn them around if there's nothing coming from `stdin`.
+    if prompt.is_empty() && !stdin.is_empty() {
+        stdin = args.globals.prompt.to_string();
+        prompt = args.globals.stdin.to_string();
+    }
 
     log::info!("info: {:#?}", args.globals);
 
@@ -144,15 +151,9 @@ async fn main() -> Result<()> {
 
         log::info!("template: {:#?}", t);
 
-        if let Some(system) = t.system {
-            args.globals.system = Some(system);
-        }
-
-        let mut tera = tera::Tera::default();
-
-        tera.add_raw_template(TEMPLATE_NAME, t.template.as_ref())?;
-
         let system = args.globals.system.clone().unwrap_or_default().to_string();
+        let suffix = args.globals.suffix.clone().unwrap_or_default().to_string();
+        let language = args.globals.language.clone();
 
         let mut default_vars = t.default_vars.unwrap_or_default();
         let vars = args.globals.vars.take().unwrap_or_default();
@@ -162,13 +163,26 @@ async fn main() -> Result<()> {
             "prompt": prompt,
             "system": system,
             "stdin": stdin,
+            "suffix": suffix,
+            "language": language,
         });
 
         merge(&mut value, default_vars);
 
         let context = tera::Context::from_value(value)?;
 
-        tera.render(TEMPLATE_NAME, &context)?
+        log::info!("context: {:#?}", context);
+
+        let mut tera = tera::Tera::default();
+
+        if let Some(system) = t.system {
+            tera.add_raw_template(SYSTEM_TEMPLATE, &system)?;
+            args.globals.system = Some(tera.render(SYSTEM_TEMPLATE, &context)?);
+        }
+
+        tera.add_raw_template(PROMPT_TEMPLATE, t.template.as_ref())?;
+
+        tera.render(PROMPT_TEMPLATE, &context)?
     } else if !stdin.is_empty() {
         format!("{}\n{}", stdin, prompt)
     } else {
@@ -176,7 +190,13 @@ async fn main() -> Result<()> {
     };
 
     if args.globals.print_template {
-        println!("{}", prompt);
+        if args.globals.system.is_some() {
+            println!(
+                "System Prompt:\n{}\n---\n",
+                args.globals.system.clone().unwrap()
+            );
+        }
+        println!("Prompt:\n{}", prompt);
         return Ok(());
     }
 
