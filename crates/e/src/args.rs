@@ -69,7 +69,7 @@ pub struct Globals {
     pub top_k: Option<u32>,
 
     /// Config file
-    #[clap(long)]
+    #[clap(long, default_value = "~/.config/e.toml")]
     pub config_file: String,
 
     /// Preset configuration
@@ -77,7 +77,7 @@ pub struct Globals {
     pub preset: Option<String>,
 
     /// Additional variables in JSON format
-    #[clap(long, value_parser = parse_json)]
+    #[clap(long, default_value="{}", value_parser = parse_json)]
     pub vars: Option<Value>,
 
     /// Suffix prompt
@@ -85,7 +85,7 @@ pub struct Globals {
     pub suffix: Option<String>,
 
     /// Language to use for syntax highlight
-    #[clap(long)]
+    #[clap(long, default_value = "markdown")]
     pub language: String,
 
     /// Prompt template to use
