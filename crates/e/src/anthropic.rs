@@ -56,5 +56,10 @@ pub async fn run(prompt: String, args: Args) -> Result<()> {
 
     let stream = client.delta(&body)?;
 
-    handle_stream(stream, args.globals.quiet.unwrap_or(false)).await
+    handle_stream(
+        stream,
+        args.globals.quiet.unwrap_or(false),
+        args.globals.language,
+    )
+    .await
 }

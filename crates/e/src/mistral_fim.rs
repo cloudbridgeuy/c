@@ -1,9 +1,9 @@
-use es_stream::mistral;
+use es_stream::mistral_fim;
 
 use crate::prelude::*;
 
 const DEFAULT_URL: &str = "https://api.mistral.ai/v1";
-const DEFAULT_MODEL: &str = "mistral-small-latest";
+const DEFAULT_MODEL: &str = "codestral-2405";
 const DEFAULT_ENV: &str = "MISTRAL_API_KEY";
 
 pub async fn run(prompt: String, args: Args) -> Result<()> {
@@ -26,35 +26,22 @@ pub async fn run(prompt: String, args: Args) -> Result<()> {
 
     log::info!("url: {}", url);
 
-    let auth = mistral::Auth::new(key);
+    let auth = mistral_fim::Auth::new(key);
 
     log::info!("auth: {:#?}", auth);
 
-    let client = mistral::Client::new(auth, url);
+    let client = mistral_fim::Client::new(auth, url);
 
     log::info!("client: {:#?}", client);
 
-    let messages = vec![mistral::Message {
-        role: mistral::Role::User,
-        content: prompt,
-    }];
-
-    let mut body = mistral::MessageBody::new(
+    let mut body = mistral_fim::MessageBody::new(
         args.globals
             .model
             .unwrap_or(DEFAULT_MODEL.to_string())
             .as_ref(),
-        messages,
+        prompt,
+        args.globals.suffix,
     );
-
-    if let Some(system) = args.globals.system {
-        let system_message = mistral::Message {
-            role: mistral::Role::System,
-            content: system,
-        };
-
-        body.messages.insert(0, system_message);
-    }
 
     body.temperature = args.globals.temperature;
     body.top_p = args.globals.top_p;

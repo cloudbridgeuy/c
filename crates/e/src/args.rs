@@ -83,6 +83,14 @@ pub struct Globals {
     /// Additional variables in JSON format
     #[clap(long, env = "E_VARS", value_parser = parse_json)]
     pub vars: Option<Value>,
+
+    /// Suffix prompt
+    #[clap(long, env = "E_SUFFIX")]
+    pub suffix: Option<String>,
+
+    /// Language to use for syntax highlight
+    #[clap(long, env = "E_LANGUAGE", default_value = "markdown")]
+    pub language: String,
 }
 
 /// Custom parser function for JSON values
@@ -98,6 +106,7 @@ pub enum Api {
     Anthropic,
     Google,
     Mistral,
+    MistralFim,
 }
 
 // From string to API enum
@@ -116,6 +125,14 @@ impl FromStr for Api {
             "Gemini" => Ok(Api::Google),
             "mistral" => Ok(Api::Mistral),
             "Mistral" => Ok(Api::Mistral),
+            "mistral-fim" => Ok(Api::MistralFim),
+            "mistral_fim" => Ok(Api::MistralFim),
+            "Mistral-FIM" => Ok(Api::MistralFim),
+            "Mistral-Fim" => Ok(Api::MistralFim),
+            "MistralFim" => Ok(Api::MistralFim),
+            "Mistral_FIM" => Ok(Api::MistralFim),
+            "Mistral_Fim" => Ok(Api::MistralFim),
+            "MistralFIM" => Ok(Api::MistralFim),
             _ => Err(Error::InvalidAPI),
         }
     }

@@ -4,7 +4,6 @@ use crate::prelude::*;
 
 // Markdown language constant string
 const DEFAULT_THEME: &str = "tokyonight-storm";
-const DEFAULT_LANGUAGE: &str = "markdown";
 
 pub struct CustomPrinter<'a> {
     inputs: Vec<bat::input::Input<'a>>,
@@ -14,13 +13,13 @@ pub struct CustomPrinter<'a> {
 }
 
 impl<'a> CustomPrinter<'a> {
-    pub fn new() -> Result<Self> {
+    pub fn new(language: &'a str) -> Result<Self> {
         let theme = std::env::var("BAT_THEME").unwrap_or_else(|_| DEFAULT_THEME.to_string());
 
         let config = bat::config::Config {
             colored_output: true,
             true_color: true,
-            language: Some(DEFAULT_LANGUAGE),
+            language: Some(language),
             theme,
             use_italic_text: true,
             wrapping_mode: bat::WrappingMode::Character,

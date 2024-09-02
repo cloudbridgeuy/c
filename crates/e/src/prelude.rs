@@ -11,6 +11,7 @@ pub async fn handle_stream(
     mut stream: impl Stream<Item = std::result::Result<String, es_stream::error::Error>>
         + std::marker::Unpin,
     quiet: bool,
+    language: String,
 ) -> Result<()> {
     let mut previous_output = String::new();
     let mut accumulated_content_bytes: Vec<u8> = Vec::new();
@@ -45,7 +46,7 @@ pub async fn handle_stream(
 
         accumulated_content_bytes.extend_from_slice(text.as_bytes());
 
-        let output = crate::printer::CustomPrinter::new()?
+        let output = crate::printer::CustomPrinter::new(&language)?
             .input_from_bytes(&accumulated_content_bytes)
             .print()?;
 
