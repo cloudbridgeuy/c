@@ -28,6 +28,10 @@ pub struct Globals {
     #[clap(long, env = "E_MAX_TOKENS")]
     pub max_tokens: Option<u32>,
 
+    /// The minimum amount of tokens to return.
+    #[clap(long, env = "E_MIN_TOKENS")]
+    pub min_tokens: Option<u32>,
+
     /// The environment variable to use to get the access token for the api.
     #[clap(long, env = "E_API_ENV")]
     pub api_env: Option<String>,
@@ -93,6 +97,7 @@ pub enum Api {
     #[default]
     Anthropic,
     Google,
+    Mistral,
 }
 
 // From string to API enum
@@ -109,6 +114,8 @@ impl FromStr for Api {
             "Google" => Ok(Api::Google),
             "gemini" => Ok(Api::Google),
             "Gemini" => Ok(Api::Google),
+            "mistral" => Ok(Api::Mistral),
+            "Mistral" => Ok(Api::Mistral),
             _ => Err(Error::InvalidAPI),
         }
     }

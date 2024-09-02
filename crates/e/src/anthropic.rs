@@ -4,6 +4,7 @@ use crate::prelude::*;
 
 const DEFAULT_URL: &str = "https://api.anthropic.com/v1";
 const DEFAULT_MODEL: &str = "claude-3-5-sonnet-20240620";
+const DEFAULT_ENV: &str = "ANTHROPIC_API_KEY";
 
 pub async fn run(prompt: String, args: Args) -> Result<()> {
     let key = match args.globals.api_key {
@@ -11,7 +12,7 @@ pub async fn run(prompt: String, args: Args) -> Result<()> {
         None => {
             let environment_variable = match args.globals.api_env {
                 Some(env) => env,
-                None => "ANTHROPIC_API_KEY".to_string(),
+                None => DEFAULT_ENV.to_string(),
             };
             std::env::var(environment_variable)?
         }

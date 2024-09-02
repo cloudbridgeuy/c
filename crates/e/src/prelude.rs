@@ -14,7 +14,10 @@ pub async fn handle_stream(
 ) -> Result<()> {
     let mut previous_output = String::new();
     let mut accumulated_content_bytes: Vec<u8> = Vec::new();
-    let mut sp = if !quiet {
+
+    let is_terminal = atty::is(atty::Stream::Stdout);
+
+    let mut sp = if !quiet && is_terminal {
         Some(spinners::Spinner::new(
             spinners::Spinners::OrangeBluePulse,
             "Loading...".into(),
@@ -24,13 +27,20 @@ pub async fn handle_stream(
     };
 
     while let Ok(Some(text)) = stream.try_next().await {
-        if atty::is(atty::Stream::Stdout) && sp.is_some() {
+        if is_terminal && sp.is_some() {
             // TODO: Find a better way to clean the spinner from the terminal.
             sp.take().unwrap().stop();
             std::io::stdout().flush()?;
             crossterm::execute!(std::io::stdout(), crossterm::cursor::MoveToColumn(0))?;
             print!("                      ");
             crossterm::execute!(std::io::stdout(), crossterm::cursor::MoveToColumn(0))?;
+        }
+
+        if !is_terminal {
+            // If not a terminal, print each instance of `text` directly to `stdout`
+            print!("{}", text);
+            std::io::stdout().flush()?;
+            continue;
         }
 
         accumulated_content_bytes.extend_from_slice(text.as_bytes());

@@ -6,6 +6,7 @@ mod args;
 mod config;
 mod error;
 mod google;
+mod mistral;
 mod openai;
 mod prelude;
 mod printer;
@@ -130,6 +131,7 @@ async fn main() -> Result<()> {
         Some(Api::OpenAi) => openai::run(prompt, args).await,
         Some(Api::Anthropic) => anthropic::run(prompt, args).await,
         Some(Api::Google) => google::run(prompt, args).await,
+        Some(Api::Mistral) => mistral::run(prompt, args).await,
         None => Err(Error::ApiNotSpecified),
     }
 }

@@ -4,6 +4,7 @@ use crate::prelude::*;
 
 const DEFAULT_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL: &str = "gemini-1.5-pro";
+const DEFAULT_ENV: &str = "GOOGLE_API_KEY";
 
 pub async fn run(prompt: String, args: Args) -> Result<()> {
     let key = match args.globals.api_key {
@@ -11,7 +12,7 @@ pub async fn run(prompt: String, args: Args) -> Result<()> {
         None => {
             let environment_variable = match args.globals.api_env {
                 Some(env) => env,
-                None => "GOOGLE_API_KEY".to_string(),
+                None => DEFAULT_ENV.to_string(),
             };
             std::env::var(environment_variable)?
         }
