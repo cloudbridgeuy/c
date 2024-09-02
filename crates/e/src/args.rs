@@ -73,12 +73,8 @@ pub struct Globals {
     pub config_file: String,
 
     /// Preset configuration
-    #[clap(long, env = "E_PRESET")]
+    #[clap(short, long, env = "E_PRESET")]
     pub preset: Option<String>,
-
-    /// Templates to use.
-    #[clap(short, long, env = "E_TEMPLATES")]
-    pub templates: Option<Vec<String>>,
 
     /// Additional variables in JSON format
     #[clap(long, env = "E_VARS", value_parser = parse_json)]
@@ -91,6 +87,14 @@ pub struct Globals {
     /// Language to use for syntax highlight
     #[clap(long, env = "E_LANGUAGE", default_value = "markdown")]
     pub language: String,
+
+    /// Prompt template to use
+    #[clap(short, long, env = "E_TEMPLATE")]
+    pub template: Option<String>,
+
+    /// Prints the rendered template instead of calling the LLM.
+    #[clap(long, default_value = "false")]
+    pub print_template: bool,
 }
 
 /// Custom parser function for JSON values

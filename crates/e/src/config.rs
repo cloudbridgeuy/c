@@ -24,11 +24,21 @@ pub struct Preset {
 }
 
 #[derive(Debug, Default, Deserialize)]
+pub enum Role {
+    Assistant,
+    Model,
+    #[default]
+    User,
+    Human,
+    System,
+}
+
+#[derive(Debug, Default, Deserialize)]
 pub struct Template {
     pub name: String,
     pub description: Option<String>,
     pub template: String,
-    pub vars: Option<Value>,
+    pub default_vars: Option<Value>,
     pub system: Option<String>,
 }
 

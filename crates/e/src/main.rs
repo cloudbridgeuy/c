@@ -14,6 +14,8 @@ mod printer;
 
 use crate::prelude::*;
 
+const TEMPLATE_NAME: &str = "template";
+
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
@@ -26,11 +28,10 @@ async fn main() -> Result<()> {
         None
     };
 
-    log::info!("info: {:#?}", args.globals);
-
     let prompt = args.globals.prompt.to_string();
     let stdin = args.globals.stdin.to_string();
-    let prompt = format!("{}\n{}", stdin, prompt);
+
+    log::info!("info: {:#?}", args.globals);
 
     let home = std::env::var("HOME")?;
     let path = args.globals.config_file.clone().replace('~', &home);
@@ -127,6 +128,57 @@ async fn main() -> Result<()> {
     }
 
     log::info!("globals: {:#?}", args.globals);
+
+    let prompt: String = if let Some(ref template) = args.globals.template {
+        let t = config
+            .templates
+            .unwrap_or_default()
+            .into_iter()
+            .find(|t| t.name == *template);
+
+        if t.is_none() {
+            return Err(Error::TemplateNotFound);
+        }
+
+        let t = t.unwrap();
+
+        log::info!("template: {:#?}", t);
+
+        if let Some(system) = t.system {
+            args.globals.system = Some(system);
+        }
+
+        let mut tera = tera::Tera::default();
+
+        tera.add_raw_template(TEMPLATE_NAME, t.template.as_ref())?;
+
+        let system = args.globals.system.clone().unwrap_or_default().to_string();
+
+        let mut default_vars = t.default_vars.unwrap_or_default();
+        let vars = args.globals.vars.take().unwrap_or_default();
+        merge(&mut default_vars, vars);
+
+        let mut value = serde_json::json!({
+            "prompt": prompt,
+            "system": system,
+            "stdin": stdin,
+        });
+
+        merge(&mut value, default_vars);
+
+        let context = tera::Context::from_value(value)?;
+
+        tera.render(TEMPLATE_NAME, &context)?
+    } else if !stdin.is_empty() {
+        format!("{}\n{}", stdin, prompt)
+    } else {
+        prompt
+    };
+
+    if args.globals.print_template {
+        println!("{}", prompt);
+        return Ok(());
+    }
 
     match api {
         Some(Api::OpenAi) => openai::run(prompt, args).await,

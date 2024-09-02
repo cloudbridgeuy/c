@@ -18,6 +18,10 @@ pub enum Error {
     ConfigFile(#[from] config_file::ConfigFileError),
     #[error("infallible error")]
     Infallible(#[from] std::convert::Infallible),
+    #[error("template not found")]
+    TemplateNotFound,
+    #[error("tera error")]
+    Tera(#[from] tera::Error),
 }
 
 pub(crate) fn format_error(
